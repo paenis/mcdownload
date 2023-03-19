@@ -131,14 +131,19 @@ async fn main() -> Result<()> {
         }
     }
 
-    // if let Some(matches) = matches.subcommand_matches("install") {
-    //     let versions: Vec<VersionNumber> = matches
-    //         .get_many("version")
-    //         .expect("No version specified")
-    //         .map(|v: &String| VersionNumber::from_str(v))
-    //         .collect();
-    //     println!("{:#?}", versions);
-    // };
+    if let Some(matches) = matches.subcommand_matches("install") {
+        unimplemented!("install command not implemented yet");
+        // let versions: Vec<VersionNumber> = matches
+        //     .get_many("version")
+        //     .expect("No version specified")
+        //     .map(|v: &String| VersionNumber::from_str(v))
+        //     .collect();
+        // println!("{:#?}", versions);
+    };
+
+    if let Some(matches) = matches.subcommand_matches("run") {
+        unimplemented!("run command not implemented yet");
+    };
 
     // let versions_other = get_version_manifest()
     //     .await?
