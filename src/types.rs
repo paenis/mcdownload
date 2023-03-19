@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::fmt::Display;
 
 use chrono::{DateTime, FixedOffset};
 use lazy_static::lazy_static;
@@ -162,16 +162,6 @@ pub enum VersionNumber {
     Snapshot(SnapshotVersion),
     Other(String), // fallback
 }
-
-impl FromStr for VersionNumber {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(&format!("\"{}\"", s)).map_err(|e| e.to_string())
-    }
-}
-    
-
 
 // better way to do this?
 impl Display for VersionNumber {
