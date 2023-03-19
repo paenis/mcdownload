@@ -224,6 +224,27 @@ impl VersionNumber {
             _ => false,
         }
     }
+
+    pub fn is_pre_release(&self) -> bool {
+        match self {
+            VersionNumber::PreRelease(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_snapshot(&self) -> bool {
+        match self {
+            VersionNumber::Snapshot(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_other(&self) -> bool {
+        match self {
+            VersionNumber::Other(_) => true,
+            _ => false,
+        }
+    }
 }
 
 /// A version of the game

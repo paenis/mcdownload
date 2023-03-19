@@ -86,39 +86,24 @@ async fn main() -> Result<()> {
         ) {
             (true, false, false, false, false) => versions
                 .into_iter()
-                .filter(|v| match v.id {
-                    VersionNumber::Release(_) => true,
-                    _ => false,
-                })
+                .filter(|v| v.id.is_release())
                 .collect_vec(),
             (false, true, false, false, false) => versions
                 .into_iter()
-                .filter(|v| match v.id {
-                    VersionNumber::PreRelease(_) => true,
-                    _ => false,
-                })
+                .filter(|v| v.id.is_pre_release())
                 .collect_vec(),
             (false, false, true, false, false) => versions
                 .into_iter()
-                .filter(|v| match v.id {
-                    VersionNumber::Snapshot(_) => true,
-                    _ => false,
-                })
+                .filter(|v| v.id.is_snapshot())
                 .collect_vec(),
             (false, false, false, true, false) => versions
                 .into_iter()
-                .filter(|v| match v.id {
-                    VersionNumber::Other(_) => true,
-                    _ => false,
-                })
+                .filter(|v| v.id.is_other())
                 .collect_vec(),
             (false, false, false, false, true) => versions.into_iter().collect_vec(),
             _ => versions
                 .into_iter()
-                .filter(|v| match v.id {
-                    VersionNumber::Release(_) => true,
-                    _ => false,
-                })
+                .filter(|v| v.id.is_release())
                 .collect_vec(),
         };
 
