@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{cmp::Ordering, fmt::Display};
 
 use chrono::{DateTime, FixedOffset};
 use lazy_static::lazy_static;
@@ -8,11 +8,41 @@ use serde_with::SerializeDisplay;
 
 /// Version format for release versions
 /// in the form of X.Y.Z
-#[derive(Debug, SerializeDisplay, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, SerializeDisplay, Eq)]
 pub struct ReleaseVersion {
     major: u64,
     minor: u64,
     patch: u64,
+}
+
+impl PartialEq for ReleaseVersion {
+    fn eq(&self, other: &Self) -> bool {
+        self.major == other.major && self.minor == other.minor && self.patch == other.patch
+    }
+}
+
+impl PartialOrd for ReleaseVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match self.major.cmp(&other.major) {
+            Ordering::Equal => match self.minor.cmp(&other.minor) {
+                Ordering::Equal => self.patch.partial_cmp(&other.patch),
+                ord => Some(ord),
+            },
+            ord => Some(ord),
+        }
+    }
+}
+
+impl Ord for ReleaseVersion {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.major.cmp(&other.major) {
+            Ordering::Equal => match self.minor.cmp(&other.minor) {
+                Ordering::Equal => self.patch.cmp(&other.patch),
+                ord => ord,
+            },
+            ord => ord,
+        }
+    }
 }
 
 impl Display for ReleaseVersion {
@@ -213,5 +243,94 @@ impl Iterator for GameVersionList {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.versions.pop()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn release_version() {
+        let v = ReleaseVersion {
+            major: 1,
+            minor: 16,
+            patch: 4,
+        };
+        assert_eq!(v.to_string(), "1.16.4");
+    }
+
+    #[test]
+    fn release_version_deserialize() {
+        let v: ReleaseVersion = serde_json::from_str(r#""1.16.4""#).unwrap();
+        assert_eq!(
+            v,
+            ReleaseVersion {
+                major: 1,
+                minor: 16,
+                patch: 4,
+            }
+        );
+    }
+
+    #[test]
+    fn release_version_deserialize_invalid() {
+        let v: Result<ReleaseVersion, _> = serde_json::from_str(r#""1.16.4-pre1""#);
+        assert!(v.is_err());
+    }
+
+    #[test]
+    fn release_version_compare() {
+        let v1 = ReleaseVersion {
+            major: 1,
+            minor: 16,
+            patch: 4,
+        };
+        let v2 = ReleaseVersion {
+            major: 1,
+            minor: 19,
+            patch: 2,
+        };
+        assert!(v1 < v2);
+    }
+
+    #[test]
+    fn release_version_equal() {
+        let v1 = ReleaseVersion {
+            major: 1,
+            minor: 16,
+            patch: 4,
+        };
+        let v2 = ReleaseVersion {
+            major: 1,
+            minor: 16,
+            patch: 4,
+        };
+        assert!(v1 == v2);
+    }
+
+    #[test]
+    fn prerelease_version() {
+        let v = PreReleaseVersion {
+            major: 1,
+            minor: 16,
+            patch: 4,
+            pre: "pre1".to_string(),
+        };
+        assert_eq!(v.to_string(), "1.16.4-pre1");
+    }
+
+    #[test]
+    fn prerelease_version_deserialize() {
+        let v: PreReleaseVersion = serde_json::from_str(r#""1.16.4-pre1""#).unwrap();
+        assert_eq!(
+            v,
+            PreReleaseVersion {
+                major: 1,
+                minor: 16,
+                patch: 4,
+                pre: "pre1".to_string(),
+            }
+        );
     }
 }

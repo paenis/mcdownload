@@ -75,7 +75,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let matches = cmd.get_matches();
 
-    let versions = get_version_manifest().await?.into_iter().collect_vec();
+    let versions_other = get_version_manifest()
+        .await?
+        .into_iter()
+        .filter(|v| match v.id {
+            VersionNumber::Other(_) => true,
+            _ => false,
+        })
+        .collect_vec();
+
+    println!("{:#?}", versions_other);
 
     // let release_versions = versions.into_iter().filter(|v| v.release_type == "release");
     // let release_ids = release_versions.map(|v| v.id).collect_vec();
