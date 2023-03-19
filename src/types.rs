@@ -1,14 +1,14 @@
-use std::{cmp::Ordering, fmt::Display};
+use std::{cmp::Ordering, fmt::Display, str::FromStr};
 
 use chrono::{DateTime, FixedOffset};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_with::SerializeDisplay;
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 /// Version format for release versions
 /// in the form of X.Y.Z
-#[derive(Debug, SerializeDisplay, Eq)]
+#[derive(Debug, SerializeDisplay, DeserializeFromStr, Eq)]
 pub struct ReleaseVersion {
     major: u64,
     minor: u64,
@@ -62,36 +62,32 @@ impl Display for ReleaseVersion {
     }
 }
 
-impl<'de> Deserialize<'de> for ReleaseVersion {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
+impl FromStr for ReleaseVersion {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"^(\d+)\.(\d+)(?:\.(\d+))?$").unwrap();
         }
-        match RE.captures(&s) {
+
+        match RE.captures(s) {
             Some(caps) => Ok(ReleaseVersion {
                 major: caps[1].parse().unwrap(),
                 minor: caps[2].parse().unwrap(),
                 patch: caps.get(3).map_or(0, |m| m.as_str().parse().unwrap()),
             }),
-            None => Err(serde::de::Error::custom(format!(
-                "Invalid version (expected X.Y.Z?, got: {})",
-                s
-            ))),
+            None => Err(format!("Invalid version (expected X.Y.Z?, got: {})", s)),
         }
     }
 }
 
 /// Version format for pre-release versions
 /// in the form of X.Y.Z-preN or X.Y.Z-rcN
-#[derive(Debug, SerializeDisplay, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PreReleaseVersion {
-    major: u32,
-    minor: u32,
-    patch: u32,
+    major: u64,
+    minor: u64,
+    patch: u64,
     pre: String, // /-(pre|rc)\d/
 }
 
@@ -114,28 +110,26 @@ impl Display for PreReleaseVersion {
     }
 }
 
-impl<'de> Deserialize<'de> for PreReleaseVersion {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
+impl FromStr for PreReleaseVersion {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         lazy_static! {
             static ref RE: Regex =
                 Regex::new(r"^(\d+)\.(\d+)(?:\.(\d+))?-((?:pre|rc)\d+)$").unwrap();
         }
 
-        match RE.captures(&s) {
+        match RE.captures(s) {
             Some(caps) => Ok(PreReleaseVersion {
                 major: caps[1].parse().unwrap(),
                 minor: caps[2].parse().unwrap(),
                 patch: caps.get(3).map_or(0, |m| m.as_str().parse().unwrap()),
                 pre: caps[4].to_string(),
             }),
-            None => Err(serde::de::Error::custom(format!(
+            None => Err(format!(
                 "Invalid version (expected X.Y.Z?-pre|rcN, got: {})",
                 s
-            ))),
+            )),
         }
     }
 }
@@ -143,10 +137,10 @@ impl<'de> Deserialize<'de> for PreReleaseVersion {
 /// Version format for snapshot versions
 /// in the form of `XXwYYZ`, where `XX` is the year,
 /// `YY` is the week, and `Z` is the iteration (a, b, c, ...)
-#[derive(Debug, SerializeDisplay, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SnapshotVersion {
-    year: u32,         // 13-$currentyear
-    week: u32,         // 01-52, probably
+    year: u8,          // 13-$currentyear
+    week: u8,          // 01-52, probably
     iteration: String, // a, b, c ...
 }
 
@@ -156,25 +150,21 @@ impl Display for SnapshotVersion {
     }
 }
 
-impl<'de> Deserialize<'de> for SnapshotVersion {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
+impl FromStr for SnapshotVersion {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"^(\d{2})w(\d{2})([a-z])$").unwrap();
         }
-        match RE.captures(&s) {
+
+        match RE.captures(s) {
             Some(caps) => Ok(SnapshotVersion {
                 year: caps[1].parse().unwrap(),
                 week: caps[2].parse().unwrap(),
                 iteration: caps[3].to_string(),
             }),
-            None => Err(serde::de::Error::custom(format!(
-                "Invalid version (expected XXwYYZ, got: {})",
-                s
-            ))),
+            None => Err(format!("Invalid version (expected XXwYYZ, got: {})", s)),
         }
     }
 }
@@ -225,8 +215,8 @@ pub struct GameVersion {
 /// Includes the latest release and snapshot versions
 #[derive(Debug, Serialize, Deserialize)]
 struct LatestVersions {
-    release: String,
-    snapshot: String,
+    release: VersionNumber,
+    snapshot: VersionNumber,
 }
 
 /// A list of game versions, as returned by the Mojang API
@@ -251,7 +241,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn release_version() {
+    fn release_version_to_string() {
         let v = ReleaseVersion {
             major: 1,
             minor: 16,
@@ -310,7 +300,7 @@ mod tests {
     }
 
     #[test]
-    fn prerelease_version() {
+    fn prerelease_version_to_string() {
         let v = PreReleaseVersion {
             major: 1,
             minor: 16,
@@ -332,5 +322,53 @@ mod tests {
                 pre: "pre1".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn deserialze_enum() {
+        let v: VersionNumber = serde_json::from_str(r#""1.16.4""#).unwrap();
+        assert_eq!(
+            v,
+            VersionNumber::Release(ReleaseVersion {
+                major: 1,
+                minor: 16,
+                patch: 4,
+            })
+        );
+
+        let v: VersionNumber = serde_json::from_str(r#""1.16.4-pre1""#).unwrap();
+        assert_eq!(
+            v,
+            VersionNumber::PreRelease(PreReleaseVersion {
+                major: 1,
+                minor: 16,
+                patch: 4,
+                pre: "pre1".to_string(),
+            })
+        );
+
+        let v: VersionNumber = serde_json::from_str(r#""1.16.4-rc1""#).unwrap();
+        assert_eq!(
+            v,
+            VersionNumber::PreRelease(PreReleaseVersion {
+                major: 1,
+                minor: 16,
+                patch: 4,
+                pre: "rc1".to_string(),
+            })
+        );
+
+        let v: VersionNumber = serde_json::from_str(r#""20w45a""#).unwrap();
+        assert_eq!(
+            v,
+            VersionNumber::Snapshot(SnapshotVersion {
+                year: 20,
+                week: 45,
+                iteration: "a".to_string(),
+            })
+        );
+
+        let v: VersionNumber = serde_json::from_str(r#""3D Shareware v1.34""#).unwrap();
+        assert_eq!(v, VersionNumber::Other("3D Shareware v1.34".to_string()));
     }
 }

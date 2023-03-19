@@ -2,8 +2,7 @@ pub(crate) mod types;
 
 use crate::types::{GameVersionList, VersionNumber};
 
-use std::error::Error;
-
+use anyhow::Result;
 use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
 use itertools::Itertools;
 
@@ -14,7 +13,7 @@ fn api_path(path: &str) -> String {
     format!("{}{}", PISTON_API_URL, path)
 }
 
-async fn get_version_manifest() -> Result<GameVersionList, Box<dyn Error>> {
+async fn get_version_manifest() -> Result<GameVersionList> {
     let version_manifest_url = api_path("mc/game/version_manifest.json");
     let response = reqwest::get(version_manifest_url)
         .await?
@@ -25,7 +24,7 @@ async fn get_version_manifest() -> Result<GameVersionList, Box<dyn Error>> {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<()> {
     let cmd = command!()
         .about("A tool for managing Minecraft versions")
         .version(crate_version!())
