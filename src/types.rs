@@ -8,7 +8,7 @@ use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 /// Version format for release versions
 /// in the form of X.Y.Z
-#[derive(Debug, SerializeDisplay, DeserializeFromStr, Eq)]
+#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, Eq)]
 pub struct ReleaseVersion {
     major: u64,
     minor: u64,
@@ -83,7 +83,7 @@ impl FromStr for ReleaseVersion {
 
 /// Version format for pre-release versions
 /// in the form of X.Y.Z-preN or X.Y.Z-rcN
-#[derive(Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PreReleaseVersion {
     major: u64,
     minor: u64,
@@ -137,7 +137,7 @@ impl FromStr for PreReleaseVersion {
 /// Version format for snapshot versions
 /// in the form of `XXwYYZ`, where `XX` is the year,
 /// `YY` is the week, and `Z` is the iteration (a, b, c, ...)
-#[derive(Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SnapshotVersion {
     year: u8,          // 13-$currentyear
     week: u8,          // 01-52, probably
@@ -174,7 +174,7 @@ impl FromStr for SnapshotVersion {
 /// - PreRelease
 /// - Snapshot
 /// - Other
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(untagged)]
 pub enum VersionNumber {
     Release(ReleaseVersion),
@@ -191,6 +191,37 @@ impl Display for VersionNumber {
             VersionNumber::PreRelease(v) => write!(f, "{}", v),
             VersionNumber::Snapshot(v) => write!(f, "{}", v),
             VersionNumber::Other(v) => write!(f, "{}", v),
+        }
+    }
+}
+
+// ugly but i'll take it
+impl FromStr for VersionNumber {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.parse::<ReleaseVersion>() {
+            Ok(v) => Ok(VersionNumber::Release(v)),
+            Err(_) => match s.parse::<PreReleaseVersion>() {
+                Ok(v) => Ok(VersionNumber::PreRelease(v)),
+                Err(_) => match s.parse::<SnapshotVersion>() {
+                    Ok(v) => Ok(VersionNumber::Snapshot(v)),
+                    Err(_) => Ok(VersionNumber::Other(s.to_string())),
+                },
+            },
+        }
+    }
+}
+
+impl VersionNumber {
+    pub fn from_str(s: &str) -> Self {
+        s.parse().unwrap_or_else(|_| unreachable!("guhh guh"))
+    }
+
+    pub fn is_release(&self) -> bool {
+        match self {
+            VersionNumber::Release(_) => true,
+            _ => false,
         }
     }
 }

@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
                 .arg(
                     arg!(-v --version "The version(s) to install")
                         .action(ArgAction::Append)
-                        .value_delimiter(' ')
+                        .value_delimiter(',') // splits as argv regardless
                         .num_args(0..)
                         .value_parser(value_parser!(String)),
                 ),
@@ -74,16 +74,97 @@ async fn main() -> Result<()> {
 
     let matches = cmd.get_matches();
 
-    let versions_other = get_version_manifest()
-        .await?
-        .into_iter()
-        .filter(|v| match v.id {
-            VersionNumber::Other(_) => true,
-            _ => false,
-        })
-        .collect_vec();
+    if let Some(matches) = matches.subcommand_matches("list") {
+        let versions = get_version_manifest().await?;
 
-    println!("{:#?}", versions_other);
+        let versions = match (
+            matches.get_flag("release"),
+            matches.get_flag("pre-release"),
+            matches.get_flag("snapshot"),
+            matches.get_flag("other"),
+            matches.get_flag("all"),
+        ) {
+            (true, false, false, false, false) => versions
+                .into_iter()
+                .filter(|v| match v.id {
+                    VersionNumber::Release(_) => true,
+                    _ => false,
+                })
+                .collect_vec(),
+            (false, true, false, false, false) => versions
+                .into_iter()
+                .filter(|v| match v.id {
+                    VersionNumber::PreRelease(_) => true,
+                    _ => false,
+                })
+                .collect_vec(),
+            (false, false, true, false, false) => versions
+                .into_iter()
+                .filter(|v| match v.id {
+                    VersionNumber::Snapshot(_) => true,
+                    _ => false,
+                })
+                .collect_vec(),
+            (false, false, false, true, false) => versions
+                .into_iter()
+                .filter(|v| match v.id {
+                    VersionNumber::Other(_) => true,
+                    _ => false,
+                })
+                .collect_vec(),
+            (false, false, false, false, true) => versions.into_iter().collect_vec(),
+            _ => versions
+                .into_iter()
+                .filter(|v| match v.id {
+                    VersionNumber::Release(_) => true,
+                    _ => false,
+                })
+                .collect_vec(),
+        };
+
+        // print as terminal table, tabulated to fill terminal width
+        let table = versions.into_iter().map(|v| v.id).collect_vec();
+
+        let max_len = table.iter().map(|v| v.to_string().len()).max().unwrap() + 1;
+
+        let table = table
+            .into_iter()
+            .chunks(term_size::dimensions().unwrap().0 / (max_len + 1))
+            .into_iter()
+            .map(|c| c.collect_vec())
+            .collect_vec();
+
+        for row in table {
+            println!(
+                "{}",
+                row.into_iter()
+                    .map(|v| v.to_string()) // for some reason, this is necessary
+                    .map(|v| format!("{:width$}", v, width = max_len))
+                    .join(" ")
+                    .trim()
+            );
+        }
+    }
+
+    // if let Some(matches) = matches.subcommand_matches("install") {
+    //     let versions: Vec<VersionNumber> = matches
+    //         .get_many("version")
+    //         .expect("No version specified")
+    //         .map(|v: &String| VersionNumber::from_str(v))
+    //         .collect();
+    //     println!("{:#?}", versions);
+    // };
+
+    // let versions_other = get_version_manifest()
+    //     .await?
+    //     .into_iter()
+    //     .filter(|v| match v.id {
+    //         VersionNumber::Other(_) => true,
+    //         _ => false,
+    //     })
+    //     .collect_vec();
+
+    // println!("{:#?}", versions_other);
 
     // let release_versions = versions.into_iter().filter(|v| v.release_type == "release");
     // let release_ids = release_versions.map(|v| v.id).collect_vec();
