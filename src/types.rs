@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use chrono::{DateTime, FixedOffset};
 use lazy_static::lazy_static;
@@ -8,7 +8,7 @@ use serde_with::SerializeDisplay;
 
 /// Version format for release versions
 /// in the form of X.Y.Z
-#[derive(Debug, SerializeDisplay)]
+#[derive(Debug, SerializeDisplay, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ReleaseVersion {
     major: u64,
     minor: u64,
@@ -57,7 +57,7 @@ impl<'de> Deserialize<'de> for ReleaseVersion {
 
 /// Version format for pre-release versions
 /// in the form of X.Y.Z-preN or X.Y.Z-rcN
-#[derive(Debug, SerializeDisplay)]
+#[derive(Debug, SerializeDisplay, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PreReleaseVersion {
     major: u32,
     minor: u32,
@@ -113,7 +113,7 @@ impl<'de> Deserialize<'de> for PreReleaseVersion {
 /// Version format for snapshot versions
 /// in the form of `XXwYYZ`, where `XX` is the year,
 /// `YY` is the week, and `Z` is the iteration (a, b, c, ...)
-#[derive(Debug, SerializeDisplay)]
+#[derive(Debug, SerializeDisplay, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SnapshotVersion {
     year: u32,         // 13-$currentyear
     week: u32,         // 01-52, probably
@@ -154,7 +154,7 @@ impl<'de> Deserialize<'de> for SnapshotVersion {
 /// - PreRelease
 /// - Snapshot
 /// - Other
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(untagged)]
 pub enum VersionNumber {
     Release(ReleaseVersion),
@@ -162,6 +162,16 @@ pub enum VersionNumber {
     Snapshot(SnapshotVersion),
     Other(String), // fallback
 }
+
+impl FromStr for VersionNumber {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(&format!("\"{}\"", s)).map_err(|e| e.to_string())
+    }
+}
+    
+
 
 // better way to do this?
 impl Display for VersionNumber {
