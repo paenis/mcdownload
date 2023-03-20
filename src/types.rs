@@ -1,4 +1,3 @@
-
 use std::{cmp::Ordering, fmt::Display, str::FromStr};
 
 use chrono::{DateTime, FixedOffset};
@@ -23,41 +22,12 @@ macro_rules! fn_is_variant {
 
 /// Version format for release versions
 /// in the form of X.Y.Z
-#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, Eq)]
+#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr)]
+#[derive(PartialEq, Eq, PartialOrd, Ord)] // fine to derive these
 pub struct ReleaseVersion {
     major: u64,
     minor: u64,
     patch: u64,
-}
-
-impl PartialEq for ReleaseVersion {
-    fn eq(&self, other: &Self) -> bool {
-        self.major == other.major && self.minor == other.minor && self.patch == other.patch
-    }
-}
-
-impl PartialOrd for ReleaseVersion {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self.major.cmp(&other.major) {
-            Ordering::Equal => match self.minor.cmp(&other.minor) {
-                Ordering::Equal => self.patch.partial_cmp(&other.patch),
-                ord => Some(ord),
-            },
-            ord => Some(ord),
-        }
-    }
-}
-
-impl Ord for ReleaseVersion {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self.major.cmp(&other.major) {
-            Ordering::Equal => match self.minor.cmp(&other.minor) {
-                Ordering::Equal => self.patch.cmp(&other.patch),
-                ord => ord,
-            },
-            ord => ord,
-        }
-    }
 }
 
 impl Display for ReleaseVersion {
@@ -243,7 +213,7 @@ impl VersionNumber {
 ///
 /// Consists of an ID, a release type, the meta URL, and a release
 /// timestamp
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, Ord)]
 pub struct GameVersion {
     pub id: VersionNumber,
     #[serde(rename = "type")]
@@ -254,13 +224,25 @@ pub struct GameVersion {
     pub release_time: DateTime<FixedOffset>,
 }
 
+impl PartialEq for GameVersion {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl PartialOrd for GameVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.release_time.partial_cmp(&other.release_time)
+    }
+}
+
 /// The latest versions of the game, as returned by the Mojang API
 ///
 /// Includes the latest release and snapshot versions
 #[derive(Debug, Serialize, Deserialize)]
-struct LatestVersions {
-    release: VersionNumber,
-    snapshot: VersionNumber,
+pub struct LatestVersions {
+    pub release: VersionNumber,
+    pub snapshot: VersionNumber,
 }
 
 /// A list of game versions, as returned by the Mojang API
@@ -268,8 +250,8 @@ struct LatestVersions {
 /// Includes the latest versions, and a list of all versions
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GameVersionList {
-    latest: LatestVersions,
-    versions: Vec<GameVersion>,
+    pub latest: LatestVersions,
+    pub versions: Vec<GameVersion>,
 }
 
 impl Iterator for GameVersionList {

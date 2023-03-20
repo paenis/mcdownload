@@ -132,17 +132,24 @@ async fn main() -> Result<()> {
     }
 
     if let Some(matches) = matches.subcommand_matches("install") {
-        todo!();
-        // let versions: Vec<VersionNumber> = matches
+        todo!("Install version(s)");
+
+        #[allow(unreachable_code)]
+        match matches.get_count("version") {
+            0 => todo!("Install latest release version"),
+            1 => todo!("Install specified version"),
+            _ => todo!("Install multiple versions (async(?))"),
+        }
+        // let versions: Vec<crate::types::VersionNumber> = matches
         //     .get_many("version")
         //     .expect("No version specified")
-        //     .map(|v: &String| VersionNumber::from_str(v))
+        //     .map(|v: &String| crate::types::VersionNumber::from_str(v))
         //     .collect();
         // println!("{:#?}", versions);
     };
-
+    
     if let Some(matches) = matches.subcommand_matches("run") {
-        todo!();
+        todo!("Run version");
     };
 
     // let versions_other = get_version_manifest()
