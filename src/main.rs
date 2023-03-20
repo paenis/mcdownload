@@ -23,6 +23,13 @@ async fn get_version_manifest() -> Result<GameVersionList> {
     Ok(response)
 }
 
+fn into_iter_filter_vec<T, F>(iter: impl Iterator<Item = T>, f: F) -> Vec<T>
+where
+    F: Fn(&T) -> bool,
+{
+    iter.into_iter().filter(f).collect_vec()
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cmd = command!()
@@ -84,27 +91,20 @@ async fn main() -> Result<()> {
             matches.get_flag("other"),
             matches.get_flag("all"),
         ) {
-            (true, false, false, false, false) => versions
-                .into_iter()
-                .filter(|v| v.id.is_release())
-                .collect_vec(),
-            (false, true, false, false, false) => versions
-                .into_iter()
-                .filter(|v| v.id.is_pre_release())
-                .collect_vec(),
-            (false, false, true, false, false) => versions
-                .into_iter()
-                .filter(|v| v.id.is_snapshot())
-                .collect_vec(),
-            (false, false, false, true, false) => versions
-                .into_iter()
-                .filter(|v| v.id.is_other())
-                .collect_vec(),
-            (false, false, false, false, true) => versions.into_iter().collect_vec(),
-            _ => versions
-                .into_iter()
-                .filter(|v| v.id.is_release())
-                .collect_vec(),
+            (true, false, false, false, false) => {
+                into_iter_filter_vec(versions, |v| v.id.is_release())
+            }
+            (false, true, false, false, false) => {
+                into_iter_filter_vec(versions, |v| v.id.is_pre_release())
+            }
+            (false, false, true, false, false) => {
+                into_iter_filter_vec(versions, |v| v.id.is_snapshot())
+            }
+            (false, false, false, true, false) => {
+                into_iter_filter_vec(versions, |v| v.id.is_other())
+            }
+            (false, false, false, false, true) => versions.collect_vec(),
+            _ => into_iter_filter_vec(versions, |v| v.id.is_release()),
         };
 
         // print as terminal table, tabulated to fill terminal width
