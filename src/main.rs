@@ -71,11 +71,14 @@ async fn main() -> Result<()> {
                 ),
         )
         .subcommand(
-            Command::new("run").about("Run a Minecraft version").arg(
-                arg!(-v --version <VERSION> "The version to run")
-                    .required(true)
-                    .value_parser(value_parser!(String)), // TODO: validate version, i.e implement FromStr for VersionNumber
-            ),
+            Command::new("run")
+                .about("Run a Minecraft version")
+                .after_help("Must be installed first")
+                .arg(
+                    arg!(-v --version <VERSION> "The version to run")
+                        .required(true)
+                        .value_parser(value_parser!(String)), // TODO: validate version, i.e implement FromStr for VersionNumber
+                ),
         );
     // .subcommand(Command::new("uninstall").about("Uninstall a Minecraft version"))
 
@@ -147,7 +150,7 @@ async fn main() -> Result<()> {
         //     .collect();
         // println!("{:#?}", versions);
     };
-    
+
     if let Some(matches) = matches.subcommand_matches("run") {
         todo!("Run version");
     };
