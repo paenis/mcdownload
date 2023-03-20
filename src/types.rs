@@ -1,10 +1,25 @@
+
 use std::{cmp::Ordering, fmt::Display, str::FromStr};
 
 use chrono::{DateTime, FixedOffset};
 use lazy_static::lazy_static;
+use paste::paste;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
+
+macro_rules! fn_is_variant {
+    ($variant:ident) => {
+        paste! {
+            pub fn [<is_ $variant:snake>](&self) -> bool {
+                match self {
+                    Self::$variant(_) => true,
+                    _ => false,
+                }
+            }
+        }
+    };
+}
 
 /// Version format for release versions
 /// in the form of X.Y.Z
@@ -218,33 +233,10 @@ impl VersionNumber {
         s.parse().unwrap_or_else(|_| unreachable!("guhh guh"))
     }
 
-    pub fn is_release(&self) -> bool {
-        match self {
-            VersionNumber::Release(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_pre_release(&self) -> bool {
-        match self {
-            VersionNumber::PreRelease(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_snapshot(&self) -> bool {
-        match self {
-            VersionNumber::Snapshot(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_other(&self) -> bool {
-        match self {
-            VersionNumber::Other(_) => true,
-            _ => false,
-        }
-    }
+    fn_is_variant!(Release);
+    fn_is_variant!(PreRelease);
+    fn_is_variant!(Snapshot);
+    fn_is_variant!(Other);
 }
 
 /// A version of the game

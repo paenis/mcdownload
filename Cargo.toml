@@ -9,6 +9,7 @@ chrono = { version = "0.4.24", features = ["serde"] }
 clap = { version = "4.1.11", features = ["wrap_help", "cargo"] }
 itertools = "0.10.5"
 lazy_static = "1.4.0"
+paste = "1.0.12"
 regex = "1.7.1"
 reqwest = { version = "0.11.14", features = ["json"] }
 serde = { version = "1.0.157", features = ["derive"] }

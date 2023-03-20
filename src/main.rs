@@ -1,6 +1,6 @@
 pub(crate) mod types;
 
-use crate::types::{GameVersionList, VersionNumber};
+use crate::types::GameVersionList;
 
 use anyhow::Result;
 use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
@@ -132,7 +132,7 @@ async fn main() -> Result<()> {
     }
 
     if let Some(matches) = matches.subcommand_matches("install") {
-        unimplemented!("install command not implemented yet");
+        todo!();
         // let versions: Vec<VersionNumber> = matches
         //     .get_many("version")
         //     .expect("No version specified")
@@ -142,7 +142,7 @@ async fn main() -> Result<()> {
     };
 
     if let Some(matches) = matches.subcommand_matches("run") {
-        unimplemented!("run command not implemented yet");
+        todo!();
     };
 
     // let versions_other = get_version_manifest()
