@@ -58,6 +58,9 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
 
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Use Cross
         if: matrix.target != ''
         run: |
