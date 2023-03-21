@@ -42,10 +42,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       
-      # - name: Install packages (Ubuntu)
-      #   if: matrix.os == 'ubuntu-22.04'
-      #   run: |
-      #     true
+      - name: Install packages (Ubuntu)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libssl-dev musl-tools
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
