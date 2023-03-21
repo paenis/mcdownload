@@ -7,6 +7,7 @@ edition = "2021"
 anyhow = "1.0.70"
 chrono = { version = "0.4.24", features = ["serde"] }
 clap = { version = "4.1.11", features = ["wrap_help", "cargo"] }
+derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
 itertools = "0.10.5"
 lazy_static = "1.4.0"
 openssl = { version = "0.10.37", optional = true }

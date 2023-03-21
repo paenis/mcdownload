@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, fmt::Display, str::FromStr};
 
 use chrono::{DateTime, FixedOffset};
+use derive_more::Display as MoreDisplay;
 use lazy_static::lazy_static;
 use paste::paste;
 use regex::Regex;
@@ -10,6 +11,7 @@ use serde_with::{DeserializeFromStr, SerializeDisplay};
 macro_rules! fn_is_variant {
     ($variant:ident) => {
         paste! {
+            #[doc = "Returns true if the enum has the variant `" $variant "`"] 
             pub fn [<is_ $variant:snake>](&self) -> bool {
                 match self {
                     Self::$variant(_) => true,
@@ -21,7 +23,7 @@ macro_rules! fn_is_variant {
 }
 
 /// Version format for release versions
-/// in the form of X.Y.Z
+/// in the form of `X.Y.Z`
 #[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)] // fine to derive these
 pub struct ReleaseVersion {
     major: u64,
@@ -66,7 +68,7 @@ impl FromStr for ReleaseVersion {
 }
 
 /// Version format for pre-release versions
-/// in the form of X.Y.Z-preN or X.Y.Z-rcN
+/// in the form of `X.Y.Z-preN` or `X.Y.Z-rcN`
 #[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PreReleaseVersion {
     major: u64,
@@ -158,25 +160,13 @@ impl FromStr for SnapshotVersion {
 /// - PreRelease
 /// - Snapshot
 /// - Other
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, MoreDisplay)]
 #[serde(untagged)]
 pub enum VersionNumber {
     Release(ReleaseVersion),
     PreRelease(PreReleaseVersion),
     Snapshot(SnapshotVersion),
     Other(String), // fallback
-}
-
-// better way to do this?
-impl Display for VersionNumber {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VersionNumber::Release(v) => write!(f, "{}", v),
-            VersionNumber::PreRelease(v) => write!(f, "{}", v),
-            VersionNumber::Snapshot(v) => write!(f, "{}", v),
-            VersionNumber::Other(v) => write!(f, "{}", v),
-        }
-    }
 }
 
 // ugly but i'll take it
