@@ -1,0 +1,67 @@
+# heavily "inspired" by ripgrep's ci.yml
+
+name: ci
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: test ${{ matrix.build }}
+    env:
+      CARGO: cargo
+      TARGET_FLAGS: ''
+      TARGET_DIR: ./target
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [stable, beta, nightly, nightly-musl, nightly-arm, win-msvc, win-gnu]
+        include:
+          - build: stable
+            os: ubuntu-22.04
+            rust: stable
+          - build: beta
+            os: ubuntu-22.04
+            rust: beta
+          - build: nightly
+            os: ubuntu-22.04
+            rust: nightly
+          - build: nightly-musl
+            os: ubuntu-22.04
+            rust: nightly
+            target: x86_64-unknown-linux-musl
+          - build: nightly-arm
+            os: ubuntu-22.04
+            rust: nightly
+            target: arm-unknown-linux-gnueabihf
+          - build: win-msvc
+            os: windows-2022
+            rust: nightly
+          - build: win-gnu
+            os: windows-2022
+            rust: nightly-x86_64-gnu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      # - name: Install packages (Ubuntu)
+      #   if: matrix.os == 'ubuntu-22.04'
+      #   run: |
+      #     true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: Use Cross
+        if: matrix.target != ''
+        run: |
+          cargo install Cross
+          echo "CARGO=cross" >> $GITHUB_ENV
+          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
+          echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+
+      - name: Build
+        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }}
+
+      - name: Test
+        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }}
