@@ -8,13 +8,14 @@ jobs:
     name: test ${{ matrix.build }}
     env:
       CARGO: cargo
-      TARGET_FLAGS: ''
+      TARGET_FLAGS: ""
       TARGET_DIR: ./target
       OTHER_FLAGS: ${{ matrix.flags }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [stable, beta, nightly, nightly-musl, nightly-arm, win-msvc, win-gnu]
+        build:
+          [stable, beta, nightly, nightly-musl, nightly-arm, win-msvc, win-gnu]
         include:
           - build: stable
             os: ubuntu-22.04
@@ -44,7 +45,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
+
       - name: Install packages (Ubuntu)
         if: matrix.os == 'ubuntu-22.04'
         run: |

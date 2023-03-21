@@ -22,8 +22,7 @@ macro_rules! fn_is_variant {
 
 /// Version format for release versions
 /// in the form of X.Y.Z
-#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr)]
-#[derive(PartialEq, Eq, PartialOrd, Ord)] // fine to derive these
+#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)] // fine to derive these
 pub struct ReleaseVersion {
     major: u64,
     minor: u64,
