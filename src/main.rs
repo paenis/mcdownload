@@ -1,6 +1,6 @@
 pub(crate) mod types;
 
-use crate::types::GameVersionList;
+use crate::types::{GameVersion, GameVersionList, VersionNumber};
 
 use anyhow::Result;
 use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
@@ -25,7 +25,7 @@ async fn get_version_manifest() -> Result<GameVersionList> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let cmd = command!()
+    let mut cmd = command!()
         .about("A tool for managing Minecraft versions")
         .version(crate_version!())
         .arg_required_else_help(true)
@@ -70,50 +70,47 @@ async fn main() -> Result<()> {
                 .arg(
                     arg!(-v --version <VERSION> "The version to run")
                         .required(true)
-                        .value_parser(value_parser!(String)), // TODO: validate version, i.e implement FromStr for VersionNumber
+                        .value_parser(value_parser!(String)), // parse as String here, validate later
                 ),
         );
     // .subcommand(Command::new("uninstall").about("Uninstall a Minecraft version"))
 
-    let matches = cmd.get_matches();
+    let matches = cmd.get_matches_mut();
+
+    // shared manifest between subcommands
+    // TODO: cache this?
+    let manifest = get_version_manifest().await?;
+    let versions = manifest.versions;
+    let version_ids = versions.iter().map(|v| &v.id).collect_vec();
+    let latest = manifest.latest;
 
     if let Some(matches) = matches.subcommand_matches("list") {
-        let versions = get_version_manifest().await?;
-
-        let versions = if matches.get_flag("release") {
-            versions
-                .into_iter()
-                .filter(|v| v.id.is_release())
-                .collect_vec()
+        let versions: Vec<&GameVersion> = if matches.get_flag("release") {
+            versions.iter().filter(|v| v.id.is_release()).collect_vec()
         } else if matches.get_flag("pre-release") {
             versions
-                .into_iter()
+                .iter()
                 .filter(|v| v.id.is_pre_release())
                 .collect_vec()
         } else if matches.get_flag("snapshot") {
-            versions
-                .into_iter()
-                .filter(|v| v.id.is_snapshot())
-                .collect_vec()
+            versions.iter().filter(|v| v.id.is_snapshot()).collect_vec()
         } else if matches.get_flag("other") {
-            versions
-                .into_iter()
-                .filter(|v| v.id.is_other())
-                .collect_vec()
+            versions.iter().filter(|v| v.id.is_other()).collect_vec()
         } else if matches.get_flag("all") {
-            versions.collect_vec()
+            versions.iter().collect_vec()
         } else {
-            versions
-                .into_iter()
-                .filter(|v| v.id.is_release())
-                .collect_vec()
+            versions.iter().filter(|v| v.id.is_release()).collect_vec()
         };
 
         // Print a terminal table with tabulated data
-        let table = versions.into_iter().map(|v| v.id).collect_vec();
-        let max_len = table.iter().map(|v| v.to_string().len()).max().unwrap() + 1;
+        let max_len = version_ids
+            .iter()
+            .map(|v| v.to_string().len())
+            .max()
+            .unwrap()
+            + 1;
 
-        for chunk in table.chunks(term_size::dimensions().unwrap().0 / (max_len + 1)) {
+        for chunk in version_ids.chunks(term_size::dimensions().unwrap().0 / (max_len + 1)) {
             let row = chunk
                 .into_iter()
                 .map(|v| format!("{:width$}", v.to_string(), width = max_len))
@@ -123,6 +120,23 @@ async fn main() -> Result<()> {
     }
 
     if let Some(matches) = matches.subcommand_matches("install") {
+        if let Some(matches) = matches.get_many::<String>("version") {
+            for version in matches {
+                let version = &version.parse::<VersionNumber>().unwrap();
+                // double reference core... kms
+                if !version_ids.contains(&version) {
+                    cmd.error(
+                        clap::error::ErrorKind::ValueValidation,
+                        format!("Invalid version: {}", version),
+                    )
+                    .exit();
+                }
+                println!("{:#?}", version);
+            }
+        } else {
+            println!("Installing latest release version");
+        }
+
         todo!("Install version(s)");
 
         #[allow(unreachable_code)]
@@ -140,6 +154,7 @@ async fn main() -> Result<()> {
     };
 
     if let Some(matches) = matches.subcommand_matches("run") {
+        println!("{:?}", versions);
         todo!("Run version");
     };
 
