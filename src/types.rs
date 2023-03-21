@@ -8,14 +8,60 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 
-macro_rules! fn_is_variant {
-    ($variant:ident) => {
-        paste! {
-            #[doc = "Returns true if the enum has the variant `" $variant "`"] 
-            pub fn [<is_ $variant:snake>](&self) -> bool {
-                match self {
-                    Self::$variant(_) => true,
-                    _ => false,
+/// Defines an `is_<variant>` method for each variant of an enum
+macro_rules! defn_is_variant {
+    ($( $variant:ident ),*) => {
+        $(
+            paste! {
+                #[doc = "Returns true if the enum has the variant `" $variant "`"]
+                pub fn [<is_ $variant:snake>](&self) -> bool {
+                    match self {
+                        Self::$variant(_) => true,
+                        _ => false,
+                    }
+                }
+            }
+        )*
+    };
+}
+
+/// Defines a FromStr implementation for an enum with variants
+/// that can be parsed from a string
+///
+/// Variants are prioritized in the order they are defined in the macro
+///
+/// # Example
+/// ```rust
+/// enum MyEnum {
+///     A(u64),
+///     B(String),
+/// }
+///
+/// parse_variants!(MyEnum {
+///     A as u64,
+///     B as String,
+/// });
+///
+/// assert_eq!(
+///     MyEnum::from_str("123").unwrap(),
+///     MyEnum::A(123)
+/// );
+/// 
+/// assert_eq!(
+///     MyEnum::from_str("hello").unwrap(),
+///     MyEnum::B("hello".to_string())
+/// );
+/// ```
+macro_rules! parse_variants {
+    ($enum_name:ident { $( $variant:ident as $ty:ty ),* $(,)? }) => {
+        impl std::str::FromStr for $enum_name {
+            type Err = String;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                $( if let Ok(v) = s.parse::<$ty>() {
+                    return Ok(Self::$variant(v));
+                } else )* {
+                    return Err(format!("Failed to parse input string: {}", s));
                 }
             }
         }
@@ -169,33 +215,20 @@ pub enum VersionNumber {
     Other(String), // fallback
 }
 
-// ugly but i'll take it
-impl FromStr for VersionNumber {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.parse::<ReleaseVersion>() {
-            Ok(v) => Ok(VersionNumber::Release(v)),
-            Err(_) => match s.parse::<PreReleaseVersion>() {
-                Ok(v) => Ok(VersionNumber::PreRelease(v)),
-                Err(_) => match s.parse::<SnapshotVersion>() {
-                    Ok(v) => Ok(VersionNumber::Snapshot(v)),
-                    Err(_) => Ok(VersionNumber::Other(s.to_string())),
-                },
-            },
-        }
-    }
-}
+// implements FromStr for VersionNumber
+parse_variants!(VersionNumber {
+    Release as ReleaseVersion,
+    PreRelease as PreReleaseVersion,
+    Snapshot as SnapshotVersion,
+    Other as String,
+});
 
 impl VersionNumber {
     pub fn from_str(s: &str) -> Self {
         s.parse().unwrap_or_else(|_| unreachable!("guhh guh"))
     }
 
-    fn_is_variant!(Release);
-    fn_is_variant!(PreRelease);
-    fn_is_variant!(Snapshot);
-    fn_is_variant!(Other);
+    defn_is_variant!(Release, PreRelease, Snapshot, Other);
 }
 
 /// A version of the game
@@ -340,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialze_enum() {
+    fn deserialze_version_number_enum() {
         let v: VersionNumber = serde_json::from_str(r#""1.16.4""#).unwrap();
         assert_eq!(
             v,
