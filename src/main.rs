@@ -87,50 +87,45 @@ async fn main() -> Result<()> {
     if let Some(matches) = matches.subcommand_matches("list") {
         let versions = get_version_manifest().await?;
 
-        let versions = match (
-            matches.get_flag("release"),
-            matches.get_flag("pre-release"),
-            matches.get_flag("snapshot"),
-            matches.get_flag("other"),
-            matches.get_flag("all"),
-        ) {
-            (true, false, false, false, false) => {
-                into_iter_filter_vec(versions, |v| v.id.is_release())
-            }
-            (false, true, false, false, false) => {
-                into_iter_filter_vec(versions, |v| v.id.is_pre_release())
-            }
-            (false, false, true, false, false) => {
-                into_iter_filter_vec(versions, |v| v.id.is_snapshot())
-            }
-            (false, false, false, true, false) => {
-                into_iter_filter_vec(versions, |v| v.id.is_other())
-            }
-            (false, false, false, false, true) => versions.collect_vec(),
-            _ => into_iter_filter_vec(versions, |v| v.id.is_release()),
+        let versions = if matches.get_flag("release") {
+            versions
+                .into_iter()
+                .filter(|v| v.id.is_release())
+                .collect_vec()
+        } else if matches.get_flag("pre-release") {
+            versions
+                .into_iter()
+                .filter(|v| v.id.is_pre_release())
+                .collect_vec()
+        } else if matches.get_flag("snapshot") {
+            versions
+                .into_iter()
+                .filter(|v| v.id.is_snapshot())
+                .collect_vec()
+        } else if matches.get_flag("other") {
+            versions
+                .into_iter()
+                .filter(|v| v.id.is_other())
+                .collect_vec()
+        } else if matches.get_flag("all") {
+            versions.collect_vec()
+        } else {
+            versions
+                .into_iter()
+                .filter(|v| v.id.is_release())
+                .collect_vec()
         };
 
-        // print as terminal table, tabulated to fill terminal width
+        // Print a terminal table with tabulated data
         let table = versions.into_iter().map(|v| v.id).collect_vec();
-
         let max_len = table.iter().map(|v| v.to_string().len()).max().unwrap() + 1;
 
-        let table = table
-            .into_iter()
-            .chunks(term_size::dimensions().unwrap().0 / (max_len + 1))
-            .into_iter()
-            .map(|c| c.collect_vec())
-            .collect_vec();
-
-        for row in table {
-            println!(
-                "{}",
-                row.into_iter()
-                    .map(|v| v.to_string()) // for some reason, this is necessary
-                    .map(|v| format!("{:width$}", v, width = max_len))
-                    .join(" ")
-                    .trim()
-            );
+        for chunk in table.chunks(term_size::dimensions().unwrap().0 / (max_len + 1)) {
+            let row = chunk
+                .into_iter()
+                .map(|v| format!("{:width$}", v.to_string(), width = max_len))
+                .join(" ");
+            println!("{}", row.trim());
         }
     }
 
