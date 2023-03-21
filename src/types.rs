@@ -28,10 +28,13 @@ macro_rules! defn_is_variant {
 /// Defines a FromStr implementation for an enum with variants
 /// that can be parsed from a string
 ///
-/// Variants are prioritized in the order they are defined in the macro
+/// Variants are prioritized in the order they are defined
+/// in the macro, so any variant with an underlying type of `String`
+/// will block any other variants that come after it
 ///
 /// # Example
 /// ```rust
+/// #[derive(Debug, PartialEq)]
 /// enum MyEnum {
 ///     A(u64),
 ///     B(String),
@@ -43,12 +46,12 @@ macro_rules! defn_is_variant {
 /// });
 ///
 /// assert_eq!(
-///     MyEnum::from_str("123").unwrap(),
+///     "123".parse::<MyEnum>().unwrap(),
 ///     MyEnum::A(123)
 /// );
 /// 
 /// assert_eq!(
-///     MyEnum::from_str("hello").unwrap(),
+///     "hello".parse::<MyEnum>().unwrap(),
 ///     MyEnum::B("hello".to_string())
 /// );
 /// ```

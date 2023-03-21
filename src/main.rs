@@ -23,13 +23,6 @@ async fn get_version_manifest() -> Result<GameVersionList> {
     Ok(response)
 }
 
-fn into_iter_filter_vec<T, F>(iter: impl Iterator<Item = T>, f: F) -> Vec<T>
-where
-    F: Fn(&T) -> bool,
-{
-    iter.into_iter().filter(f).collect_vec()
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let cmd = command!()
