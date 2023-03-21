@@ -10,6 +10,7 @@ jobs:
       CARGO: cargo
       TARGET_FLAGS: ''
       TARGET_DIR: ./target
+      OTHER_FLAGS: ${{ matrix.flags }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -28,10 +29,12 @@ jobs:
             os: ubuntu-22.04
             rust: nightly
             target: x86_64-unknown-linux-musl
+            flags: --features vendored-openssl --features rustls
           - build: nightly-arm
             os: ubuntu-22.04
             rust: nightly
             target: arm-unknown-linux-gnueabihf
+            flags: --features vendored-openssl --features rustls
           - build: win-msvc
             os: windows-2022
             rust: nightly
@@ -48,6 +51,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends --reinstall \
             openssl libssl-dev openssl musl-tools
+          export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig/
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
@@ -63,7 +67,7 @@ jobs:
           echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
 
       - name: Build
-        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }}
 
       - name: Test
-        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }}
