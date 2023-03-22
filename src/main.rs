@@ -22,6 +22,8 @@ async fn get_version_manifest() -> Result<GameVersionList> {
         .json::<GameVersionList>()
         .await?;
 
+    // idea: save to disk with expiry of ~10min, add option to clear (delete file)
+    // call in each subcommand instead of sharing (`run` should not have to wait to make a request)
     Ok(response)
 }
 
@@ -156,36 +158,12 @@ async fn main() -> Result<()> {
             1 => todo!("Install specified version"),
             _ => todo!("Install multiple versions (async(?))"),
         }
-        // let versions: Vec<crate::types::VersionNumber> = matches
-        //     .get_many("version")
-        //     .expect("No version specified")
-        //     .map(|v: &String| crate::types::VersionNumber::from_str(v))
-        //     .collect();
-        // println!("{:#?}", versions);
     };
 
     if let Some(matches) = matches.subcommand_matches("run") {
         println!("{:?}", versions);
         todo!("Run version");
     };
-
-    // let versions_other = get_version_manifest()
-    //     .await?
-    //     .into_iter()
-    //     .filter(|v| match v.id {
-    //         VersionNumber::Other(_) => true,
-    //         _ => false,
-    //     })
-    //     .collect_vec();
-
-    // println!("{:#?}", versions_other);
-
-    // let release_versions = versions.into_iter().filter(|v| v.release_type == "release");
-    // let release_ids = release_versions.map(|v| v.id).collect_vec();
-
-    // println!("{:?}", release_ids);
-    // println!("{}", serde_json::to_string_pretty(&versions)?);
-    // println!("{}", versions_list.iter().format("\n"));
 
     Ok(())
 }
