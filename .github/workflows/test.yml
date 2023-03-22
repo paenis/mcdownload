@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         build:
-          [stable, beta, nightly, nightly-musl, nightly-arm, win-msvc, win-gnu]
+          [stable, beta, nightly, nightly-musl, nightly-aarch64, nightly-aarch64-musl, win-msvc, win-gnu]
         include:
           - build: stable
             os: ubuntu-22.04
@@ -31,10 +31,20 @@ jobs:
             rust: nightly
             target: x86_64-unknown-linux-musl
             flags: --features vendored-openssl --features rustls
-          - build: nightly-arm
+          # - build: nightly-armv6
+          #   os: ubuntu-22.04
+          #   rust: nightly
+          #   target: arm-unknown-linux-gnueabihf
+          #   flags: --features vendored-openssl --features rustls
+          - build: nightly-aarch64
             os: ubuntu-22.04
             rust: nightly
-            target: arm-unknown-linux-gnueabihf
+            target: aarch64-unknown-linux-gnu
+            flags: --features vendored-openssl --features rustls
+          - build: nightly-aarch64-musl
+            os: ubuntu-22.04
+            rust: nightly
+            target: aarch64-unknown-linux-musl
             flags: --features vendored-openssl --features rustls
           - build: win-msvc
             os: windows-2022
