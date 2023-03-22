@@ -1,5 +1,7 @@
 pub(crate) mod types;
 
+use std::future::Future;
+
 use crate::types::{GameVersion, GameVersionList, VersionNumber};
 
 use anyhow::Result;
@@ -122,21 +124,30 @@ async fn main() -> Result<()> {
     if let Some(matches) = matches.subcommand_matches("install") {
         if let Some(matches) = matches.get_many::<String>("version") {
             for version in matches {
-                let version = &version.parse::<VersionNumber>().unwrap();
+                let version = version.parse::<VersionNumber>().unwrap();
                 // double reference core... kms
-                if !version_ids.contains(&version) {
+                if !version_ids.contains(&&version) {
                     cmd.error(
                         clap::error::ErrorKind::ValueValidation,
                         format!("Invalid version: {}", version),
                     )
                     .exit();
                 }
-                println!("{:#?}", version);
+
+                let version = versions.iter().find(|v| v.id == version).unwrap();
+                let url = version.url.clone();
+
+                tokio::spawn(async move {
+                    let response = reqwest::get(url).await?.text().await?;
+                    dbg!(response);
+                    Ok::<(), reqwest::Error>(())
+                });
             }
         } else {
             println!("Installing latest release version");
         }
 
+        std::thread::sleep(std::time::Duration::from_secs(5));
         todo!("Install version(s)");
 
         #[allow(unreachable_code)]

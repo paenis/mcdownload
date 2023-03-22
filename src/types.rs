@@ -243,7 +243,7 @@ pub struct GameVersion {
     pub id: VersionNumber,
     #[serde(rename = "type")]
     pub release_type: String, // release, snapshot, old_beta, old_alpha. TODO: enum?
-    url: String,
+    pub url: String,
     pub time: DateTime<FixedOffset>,
     #[serde(rename = "releaseTime")]
     pub release_time: DateTime<FixedOffset>,
