@@ -1,57 +1,12 @@
 pub(crate) mod types;
 pub(crate) mod utils;
 
-use std::{fs, path::Path};
-
-use crate::types::net::CachedResponse;
-use crate::types::version::{GameVersion, GameVersionList, VersionNumber};
-use crate::utils::net::api_path;
+use crate::types::version::{GameVersion, VersionNumber};
+use crate::utils::net::get_version_manifest;
 
 use anyhow::Result;
-use chrono::Utc;
 use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
 use itertools::Itertools;
-
-// async fn get_version_manifest() -> Result<GameVersionList> {
-//     let version_manifest_url = api_path("mc/game/version_manifest.json");
-//     let response = reqwest::get(version_manifest_url)
-//         .await?
-//         .json::<GameVersionList>()
-//         .await?;
-
-//     // idea: save to disk with expiry of ~10min, add option to clear (delete file)
-//     // call in each subcommand instead of sharing (`run` should not have to wait to make a request)
-//     Ok(response)
-// }
-
-async fn get_version_manifest() -> Result<GameVersionList> {
-    let version_manifest_url = api_path("mc/game/version_manifest.json");
-    let cache_file = Path::new(".manifest.json");
-
-    // check if file exists and is not expired
-    // if so, return cached data
-    if let Ok(data) = fs::read_to_string(cache_file) {
-        if let Ok(cached) = serde_json::from_str::<CachedResponse<GameVersionList>>(&data) {
-            if !cached.is_expired() {
-                return Ok(cached.data);
-            }
-        }
-    }
-
-    // file doesn't exist or is expired, get fresh data
-    let response = reqwest::get(version_manifest_url)
-        .await?
-        .json::<GameVersionList>()
-        .await?;
-
-    // save to disk
-    let cached_response =
-        CachedResponse::new(&response, Utc::now() + chrono::Duration::minutes(10));
-    let data = serde_json::to_string(&cached_response)?;
-    fs::write(cache_file, data)?;
-
-    Ok(response)
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
