@@ -1,29 +1,55 @@
 pub(crate) mod types;
+pub(crate) mod utils;
 
-use std::future::Future;
+use std::{fs, path::Path};
 
-use crate::types::{GameVersion, GameVersionList, VersionNumber};
+use crate::types::net::CachedResponse;
+use crate::types::version::{GameVersion, GameVersionList, VersionNumber};
+use crate::utils::net::api_path;
 
 use anyhow::Result;
+use chrono::Utc;
 use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
 use itertools::Itertools;
 
-const PISTON_API_URL: &str = "https://piston-meta.mojang.com/";
-const FABRIC_API_URL: &str = "https://meta.fabricmc.net/";
+// async fn get_version_manifest() -> Result<GameVersionList> {
+//     let version_manifest_url = api_path("mc/game/version_manifest.json");
+//     let response = reqwest::get(version_manifest_url)
+//         .await?
+//         .json::<GameVersionList>()
+//         .await?;
 
-fn api_path(path: &str) -> String {
-    format!("{}{}", PISTON_API_URL, path)
-}
+//     // idea: save to disk with expiry of ~10min, add option to clear (delete file)
+//     // call in each subcommand instead of sharing (`run` should not have to wait to make a request)
+//     Ok(response)
+// }
 
 async fn get_version_manifest() -> Result<GameVersionList> {
     let version_manifest_url = api_path("mc/game/version_manifest.json");
+    let cache_file = Path::new(".manifest.json");
+
+    // check if file exists and is not expired
+    // if so, return cached data
+    if let Ok(data) = fs::read_to_string(cache_file) {
+        if let Ok(cached) = serde_json::from_str::<CachedResponse<GameVersionList>>(&data) {
+            if !cached.is_expired() {
+                return Ok(cached.data);
+            }
+        }
+    }
+
+    // file doesn't exist or is expired, get fresh data
     let response = reqwest::get(version_manifest_url)
         .await?
         .json::<GameVersionList>()
         .await?;
 
-    // idea: save to disk with expiry of ~10min, add option to clear (delete file)
-    // call in each subcommand instead of sharing (`run` should not have to wait to make a request)
+    // save to disk
+    let cached_response =
+        CachedResponse::new(&response, Utc::now() + chrono::Duration::minutes(10));
+    let data = serde_json::to_string(&cached_response)?;
+    fs::write(cache_file, data)?;
+
     Ok(response)
 }
 
@@ -54,6 +80,15 @@ async fn main() -> Result<()> {
                     "other",
                     "all",
                 ])),
+        )
+        .subcommand(
+            Command::new("info")
+                .about("Get information about a Minecraft version")
+                .arg(
+                    arg!(-v --version <VERSION> "The version to get information about")
+                        .required(true)
+                        .value_parser(value_parser!(String)),
+                ),
         )
         .subcommand(
             Command::new("install")
@@ -89,7 +124,7 @@ async fn main() -> Result<()> {
     let latest = manifest.latest;
 
     if let Some(matches) = matches.subcommand_matches("list") {
-        let versions: Vec<&GameVersion> = if matches.get_flag("release") {
+        let versions_filtered: Vec<&GameVersion> = if matches.get_flag("release") {
             versions.iter().filter(|v| v.id.is_release()).collect_vec()
         } else if matches.get_flag("pre-release") {
             versions
@@ -107,20 +142,50 @@ async fn main() -> Result<()> {
         };
 
         // Print a terminal table with tabulated data
-        let max_len = version_ids
+        let max_len = versions_filtered
             .iter()
-            .map(|v| v.to_string().len())
+            .map(|v| v.id.to_string().len())
             .max()
             .unwrap()
             + 1;
 
-        for chunk in version_ids.chunks(term_size::dimensions().unwrap().0 / (max_len + 1)) {
+        for chunk in versions_filtered.chunks(term_size::dimensions().unwrap().0 / (max_len + 1)) {
             let row = chunk
                 .into_iter()
-                .map(|v| format!("{:width$}", v.to_string(), width = max_len))
+                .map(|v| format!("{:width$}", v.id.to_string(), width = max_len))
                 .join(" ");
             println!("{}", row.trim());
         }
+    }
+
+    if let Some(matches) = matches.subcommand_matches("info") {
+        let version = matches
+            .get_one::<String>("version")
+            .unwrap()
+            .parse::<VersionNumber>()
+            .unwrap_or_else(|v| {
+                cmd.error(
+                    clap::error::ErrorKind::ValueValidation,
+                    format!("Version failed to parse: {}", v),
+                )
+                .exit()
+            });
+
+        if !version_ids.contains(&&version) {
+            cmd.error(
+                clap::error::ErrorKind::ValueValidation,
+                format!("Invalid version: {}", version),
+            )
+            .exit();
+        }
+
+        let version = versions.iter().find(|v| v.id == version).unwrap();
+
+        println!("Version: {}", version.id);
+        println!("Type: {}", version.release_type);
+        // println!("URL: {}", version.url);
+        // println!("Time: {}", version.time);
+        println!("Release time: {}", version.release_time);
     }
 
     if let Some(matches) = matches.subcommand_matches("install") {

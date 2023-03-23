@@ -1,75 +1,13 @@
 use std::{cmp::Ordering, fmt::Display, str::FromStr};
 
+use crate::utils::macros::{defn_is_variant, parse_variants};
+
 use chrono::{DateTime, FixedOffset};
 use derive_more::Display as MoreDisplay;
 use lazy_static::lazy_static;
-use paste::paste;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
-
-/// Defines an `is_<variant>` method for each variant of an enum
-macro_rules! defn_is_variant {
-    ($( $variant:ident ),*) => {
-        $(
-            paste! {
-                #[doc = "Returns true if the enum has the variant `" $variant "`"]
-                pub fn [<is_ $variant:snake>](&self) -> bool {
-                    match self {
-                        Self::$variant(_) => true,
-                        _ => false,
-                    }
-                }
-            }
-        )*
-    };
-}
-
-/// Defines a FromStr implementation for an enum with variants
-/// that can be parsed from a string
-///
-/// Variants are prioritized in the order they are defined
-/// in the macro, so any variant with an underlying type of `String`
-/// will block any other variants that come after it
-///
-/// # Example
-/// ```rust
-/// #[derive(Debug, PartialEq)]
-/// enum MyEnum {
-///     A(u64),
-///     B(String),
-/// }
-///
-/// parse_variants!(MyEnum {
-///     A as u64,
-///     B as String,
-/// });
-///
-/// assert_eq!(
-///     "123".parse::<MyEnum>().unwrap(),
-///     MyEnum::A(123)
-/// );
-/// 
-/// assert_eq!(
-///     "hello".parse::<MyEnum>().unwrap(),
-///     MyEnum::B("hello".to_string())
-/// );
-/// ```
-macro_rules! parse_variants {
-    ($enum_name:ident { $( $variant:ident as $ty:ty ),* $(,)? }) => {
-        impl std::str::FromStr for $enum_name {
-            type Err = String;
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                $( if let Ok(v) = s.parse::<$ty>() {
-                    return Ok(Self::$variant(v));
-                } else )* {
-                    return Err(format!("Failed to parse input string: {}", s));
-                }
-            }
-        }
-    };
-}
 
 /// Version format for release versions
 /// in the form of `X.Y.Z`
