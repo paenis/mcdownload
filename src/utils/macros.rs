@@ -69,7 +69,7 @@ pub(crate) use parse_variants;
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_defn_is_variant() {
+    fn defn_is_variant() {
         #[derive(Debug, PartialEq)]
         enum MyEnum {
             A(u64),
@@ -99,7 +99,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_variants() {
+    fn parse_variants() {
         #[derive(Debug, PartialEq)]
         enum MyEnum {
             A(u8),
