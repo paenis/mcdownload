@@ -169,10 +169,8 @@ async fn main() -> Result<()> {
             println!("Installing latest release version");
         }
 
-        std::thread::sleep(std::time::Duration::from_secs(5));
-        todo!("Install version(s)");
+        std::thread::sleep(std::time::Duration::from_secs(2));
 
-        #[allow(unreachable_code)]
         match matches.get_count("version") {
             0 => todo!("Install latest release version"),
             1 => todo!("Install specified version"),
