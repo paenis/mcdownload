@@ -101,10 +101,15 @@ async fn main() -> Result<()> {
             .iter()
             .map(|v| v.id.to_string().len())
             .max()
-            .unwrap()
+            .expect("No versions found")
             + 1;
 
-        for chunk in versions_filtered.chunks(term_size::dimensions().unwrap().0 / (max_len + 1)) {
+        for chunk in versions_filtered.chunks(
+            term_size::dimensions()
+                .expect("No terminal output (what were you thinking?)")
+                .0
+                / (max_len + 1),
+        ) {
             let row = chunk
                 .into_iter()
                 .map(|v| format!("{:width$}", v.id.to_string(), width = max_len))
@@ -116,7 +121,7 @@ async fn main() -> Result<()> {
     if let Some(matches) = matches.subcommand_matches("info") {
         let version = matches
             .get_one::<String>("version")
-            .unwrap()
+            .expect("No version provided")
             .parse::<VersionNumber>()
             .unwrap_or_else(|v| {
                 cmd.error(
@@ -134,48 +139,78 @@ async fn main() -> Result<()> {
             .exit();
         }
 
-        let version = versions.iter().find(|v| v.id == version).unwrap();
+        let version = versions
+            .iter()
+            .find(|v| v.id == version)
+            .unwrap_or_else(|| unreachable!()); // at least i think so
 
         println!("Version: {}", version.id);
         println!("Type: {}", version.release_type);
         // println!("URL: {}", version.url);
-        // println!("Time: {}", version.time);
         println!("Release time: {}", version.release_time);
+        // println!("Updated: {}", version.time); // meta update time?
     }
 
     if let Some(matches) = matches.subcommand_matches("install") {
         if let Some(matches) = matches.get_many::<String>("version") {
-            for version in matches {
-                let version = version.parse::<VersionNumber>().unwrap();
-                // double reference core... kms
-                if !version_ids.contains(&&version) {
-                    cmd.error(
-                        clap::error::ErrorKind::ValueValidation,
-                        format!("Invalid version: {}", version),
-                    )
-                    .exit();
-                }
+            let to_install = matches
+                .into_iter()
+                .map(|v| v.parse::<VersionNumber>().expect("Failed to parse version"))
+                .collect_vec();
 
-                let version = versions.iter().find(|v| v.id == version).unwrap();
-                let url = version.url.clone();
+            let (valid, invalid): (Vec<_>, Vec<_>) = to_install
+                .into_iter()
+                .partition(|v| version_ids.contains(&&v));
+
+            if valid.is_empty() {
+                cmd.error(
+                    clap::error::ErrorKind::ValueValidation,
+                    format!("No valid versions found (got {})", invalid.len()),
+                )
+                .exit();
+            }
+
+            println!(
+                "Installing {} versions: {}",
+                valid.len(),
+                valid.iter().map(|v| v.to_string()).join(", ")
+            );
+            if !invalid.is_empty() {
+                println!(
+                    "(Skipped {} invalid versions: {})",
+                    invalid.len(),
+                    invalid.iter().map(|v| v.to_string()).join(", ")
+                );
+            }
+
+            let to_install_versions = versions
+                .iter()
+                .filter(|v| valid.contains(&v.id))
+                .collect_vec();
+
+            for version in to_install_versions {
+                // dbg!(&version.id);
+
+                let url = version.url.clone(); // CANNOT be borrowed (unless i'm stupid (likely))
 
                 tokio::spawn(async move {
                     let response = reqwest::get(url).await?.text().await?;
-                    dbg!(response);
+                    // dbg!(response);
                     Ok::<(), reqwest::Error>(())
                 });
             }
         } else {
             println!("Installing latest release version");
+            let latest = versions.iter().find(|v| v.id == latest.release).expect("No version matching latest release found");
+            let url = latest.url.clone();
+            tokio::spawn(async move {
+                let response = reqwest::get(url).await?.text().await?;
+                dbg!(response);
+                Ok::<(), reqwest::Error>(())
+            });
         }
 
         std::thread::sleep(std::time::Duration::from_secs(2));
-
-        match matches.get_count("version") {
-            0 => todo!("Install latest release version"),
-            1 => todo!("Install specified version"),
-            _ => todo!("Install multiple versions (async(?))"),
-        }
     };
 
     if let Some(matches) = matches.subcommand_matches("run") {
