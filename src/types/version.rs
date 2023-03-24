@@ -12,7 +12,7 @@ use serde_with::{DeserializeFromStr, SerializeDisplay};
 /// Version format for release versions
 /// in the form of `X.Y.Z`
 #[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)] // fine to derive these
-pub struct ReleaseVersion {
+pub(crate) struct ReleaseVersion {
     major: u64,
     minor: u64,
     patch: u64,
@@ -57,7 +57,7 @@ impl FromStr for ReleaseVersion {
 /// Version format for pre-release versions
 /// in the form of `X.Y.Z-preN` or `X.Y.Z-rcN`
 #[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PreReleaseVersion {
+pub(crate) struct PreReleaseVersion {
     major: u64,
     minor: u64,
     patch: u64,
@@ -111,7 +111,7 @@ impl FromStr for PreReleaseVersion {
 /// in the form of `XXwYYZ`, where `XX` is the year,
 /// `YY` is the week, and `Z` is the iteration (a, b, c, ...)
 #[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
-pub struct SnapshotVersion {
+pub(crate) struct SnapshotVersion {
     year: u8,          // 13-$currentyear
     week: u8,          // 01-52, probably
     iteration: String, // a, b, c ...
@@ -177,7 +177,7 @@ impl VersionNumber {
 /// Consists of an ID, a release type, the meta URL, and a release
 /// timestamp
 #[derive(Debug, Serialize, Deserialize, Eq, Ord)]
-pub struct GameVersion {
+pub(crate) struct GameVersion {
     pub id: VersionNumber,
     #[serde(rename = "type")]
     pub release_type: String, // release, snapshot, old_beta, old_alpha. TODO: enum?
@@ -203,7 +203,7 @@ impl PartialOrd for GameVersion {
 ///
 /// Includes the latest release and snapshot versions
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LatestVersions {
+pub(crate) struct LatestVersions {
     pub release: VersionNumber,
     pub snapshot: VersionNumber,
 }
@@ -212,7 +212,7 @@ pub struct LatestVersions {
 ///
 /// Includes the latest versions, and a list of all versions
 #[derive(Debug, Serialize, Deserialize)]
-pub struct GameVersionList {
+pub(crate) struct GameVersionList {
     pub latest: LatestVersions,
     pub versions: Vec<GameVersion>,
 }
