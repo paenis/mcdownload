@@ -16,6 +16,7 @@ pub(crate) fn fabric_api_path(path: &str) -> String {
     format!("{}{}", FABRIC_API_URL, path)
 }
 
+// TODO: use tokio::fs
 pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
     let version_manifest_url = api_path("mc/game/version_manifest.json");
     let cache_file = Path::new(".manifest.json");
