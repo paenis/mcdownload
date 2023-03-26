@@ -111,7 +111,7 @@ async fn main() -> Result<()> {
                 / (max_len + 1),
         ) {
             let row = chunk
-                .into_iter()
+                .iter()
                 .map(|v| format!("{:width$}", v.id.to_string(), width = max_len))
                 .join(" ");
             println!("{}", row.trim());
@@ -201,7 +201,10 @@ async fn main() -> Result<()> {
             }
         } else {
             println!("Installing latest release version");
-            let latest = versions.iter().find(|v| v.id == latest.release).expect("No version matching latest release found");
+            let latest = versions
+                .iter()
+                .find(|v| v.id == latest.release)
+                .expect("No version matching latest release found");
             let url = latest.url.clone();
             tokio::spawn(async move {
                 let response = reqwest::get(url).await?.text().await?;

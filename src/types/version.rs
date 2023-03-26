@@ -3,7 +3,7 @@ use std::{cmp::Ordering, fmt::Display, str::FromStr};
 use crate::utils::macros::{defn_is_variant, parse_variants};
 
 use chrono::{DateTime, FixedOffset};
-use derive_more::Display as MoreDisplay;
+use derive_more::{Constructor, Display as MoreDisplay};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,9 @@ use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 /// Version format for release versions
 /// in the form of `X.Y.Z`
-#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)] // fine to derive these
+#[derive(
+    Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord, Constructor,
+)]
 pub(crate) struct ReleaseVersion {
     major: u64,
     minor: u64,
@@ -44,11 +46,11 @@ impl FromStr for ReleaseVersion {
         }
 
         match RE.captures(s) {
-            Some(caps) => Ok(ReleaseVersion {
-                major: caps[1].parse().unwrap(),
-                minor: caps[2].parse().unwrap(),
-                patch: caps.get(3).map_or(0, |m| m.as_str().parse().unwrap()),
-            }),
+            Some(caps) => Ok(ReleaseVersion::new(
+                caps[1].parse().unwrap(),
+                caps[2].parse().unwrap(),
+                caps.get(3).map_or(0, |m| m.as_str().parse().unwrap()),
+            )),
             None => Err(format!("Invalid version (expected X.Y.Z?, got: {})", s)),
         }
     }
@@ -56,7 +58,9 @@ impl FromStr for ReleaseVersion {
 
 /// Version format for pre-release versions
 /// in the form of `X.Y.Z-preN` or `X.Y.Z-rcN`
-#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord, Constructor,
+)]
 pub(crate) struct PreReleaseVersion {
     major: u64,
     minor: u64,
@@ -93,12 +97,12 @@ impl FromStr for PreReleaseVersion {
         }
 
         match RE.captures(s) {
-            Some(caps) => Ok(PreReleaseVersion {
-                major: caps[1].parse().unwrap(),
-                minor: caps[2].parse().unwrap(),
-                patch: caps.get(3).map_or(0, |m| m.as_str().parse().unwrap()),
-                pre: caps[4].to_string(),
-            }),
+            Some(caps) => Ok(PreReleaseVersion::new(
+                caps[1].parse().unwrap(),
+                caps[2].parse().unwrap(),
+                caps.get(3).map_or(0, |m| m.as_str().parse().unwrap()),
+                caps[4].to_string(),
+            )),
             None => Err(format!(
                 "Invalid version (expected X.Y.Z?-pre|rcN, got: {})",
                 s
@@ -110,7 +114,9 @@ impl FromStr for PreReleaseVersion {
 /// Version format for snapshot versions
 /// in the form of `XXwYYZ`, where `XX` is the year,
 /// `YY` is the week, and `Z` is the iteration (a, b, c, ...)
-#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord, Constructor,
+)]
 pub(crate) struct SnapshotVersion {
     year: u8,          // 13-$currentyear
     week: u8,          // 01-52, probably
@@ -132,11 +138,11 @@ impl FromStr for SnapshotVersion {
         }
 
         match RE.captures(s) {
-            Some(caps) => Ok(SnapshotVersion {
-                year: caps[1].parse().unwrap(),
-                week: caps[2].parse().unwrap(),
-                iteration: caps[3].to_string(),
-            }),
+            Some(caps) => Ok(SnapshotVersion::new(
+                caps[1].parse().unwrap(),
+                caps[2].parse().unwrap(),
+                caps[3].to_string(),
+            )),
             None => Err(format!("Invalid version (expected XXwYYZ, got: {})", s)),
         }
     }
@@ -149,7 +155,7 @@ impl FromStr for SnapshotVersion {
 /// - Other
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, MoreDisplay)]
 #[serde(untagged)]
-pub enum VersionNumber {
+pub(crate) enum VersionNumber {
     Release(ReleaseVersion),
     PreRelease(PreReleaseVersion),
     Snapshot(SnapshotVersion),
@@ -165,10 +171,6 @@ parse_variants!(VersionNumber {
 });
 
 impl VersionNumber {
-    pub fn from_str(s: &str) -> Self {
-        s.parse().unwrap_or_else(|_| unreachable!("guhh guh"))
-    }
-
     defn_is_variant!(Release, PreRelease, Snapshot, Other);
 }
 
@@ -176,7 +178,7 @@ impl VersionNumber {
 ///
 /// Consists of an ID, a release type, the meta URL, and a release
 /// timestamp
-#[derive(Debug, Serialize, Deserialize, Eq, Ord)]
+#[derive(Debug, Serialize, Deserialize, Eq)]
 pub(crate) struct GameVersion {
     pub id: VersionNumber,
     #[serde(rename = "type")]
@@ -196,6 +198,12 @@ impl PartialEq for GameVersion {
 impl PartialOrd for GameVersion {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.release_time.partial_cmp(&other.release_time)
+    }
+}
+
+impl Ord for GameVersion {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.release_time.cmp(&other.release_time)
     }
 }
 
