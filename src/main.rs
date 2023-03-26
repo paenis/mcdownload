@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 pub(crate) mod types;
 pub(crate) mod utils;
 
@@ -7,6 +9,7 @@ use crate::utils::net::get_version_manifest;
 use anyhow::Result;
 use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
 use itertools::Itertools;
+
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -72,13 +75,14 @@ async fn main() -> Result<()> {
     let matches = cmd.get_matches_mut();
 
     // shared manifest between subcommands
-    // TODO: cache this?
-    let manifest = get_version_manifest().await?;
-    let versions = manifest.versions;
-    let version_ids = versions.iter().map(|v| &v.id).collect_vec();
-    let latest = manifest.latest;
+    let manifest_thread = tokio::spawn(async move {
+        let manifest = get_version_manifest().await?;
+
+        Ok::<_, anyhow::Error>(manifest)
+    });
 
     if let Some(matches) = matches.subcommand_matches("list") {
+        let versions = manifest_thread.await??.versions;
         let versions_filtered: Vec<&GameVersion> = if matches.get_flag("release") {
             versions.iter().filter(|v| v.id.is_release()).collect_vec()
         } else if matches.get_flag("pre-release") {
@@ -116,9 +120,11 @@ async fn main() -> Result<()> {
                 .join(" ");
             println!("{}", row.trim());
         }
-    }
+    } else if let Some(matches) = matches.subcommand_matches("info") {
+        let manifest = manifest_thread.await??;
+        let versions = manifest.versions;
+        let version_ids = versions.iter().map(|v| &v.id).collect_vec();
 
-    if let Some(matches) = matches.subcommand_matches("info") {
         let version = matches
             .get_one::<String>("version")
             .expect("No version provided")
@@ -149,9 +155,12 @@ async fn main() -> Result<()> {
         // println!("URL: {}", version.url);
         println!("Release time: {}", version.release_time);
         // println!("Updated: {}", version.time); // meta update time?
-    }
+    } else if let Some(matches) = matches.subcommand_matches("install") {
+        let manifest = manifest_thread.await??;
+        let versions = manifest.versions;
+        let version_ids = versions.iter().map(|v| &v.id).collect_vec();
+        let latest = manifest.latest;
 
-    if let Some(matches) = matches.subcommand_matches("install") {
         if let Some(matches) = matches.get_many::<String>("version") {
             let to_install = matches
                 .into_iter()
@@ -173,13 +182,13 @@ async fn main() -> Result<()> {
             println!(
                 "Installing {} versions: {}",
                 valid.len(),
-                valid.iter().map(|v| v.to_string()).join(", ")
+                valid.iter().map(ToString::to_string).join(", ")
             );
             if !invalid.is_empty() {
                 println!(
                     "(Skipped {} invalid versions: {})",
                     invalid.len(),
-                    invalid.iter().map(|v| v.to_string()).join(", ")
+                    invalid.iter().map(ToString::to_string).join(", ")
                 );
             }
 
@@ -214,10 +223,8 @@ async fn main() -> Result<()> {
         }
 
         std::thread::sleep(std::time::Duration::from_secs(2));
-    };
-
-    if let Some(matches) = matches.subcommand_matches("run") {
-        println!("{:?}", versions);
+    } else if let Some(matches) = matches.subcommand_matches("run") {
+        // println!("{:?}", versions);
         todo!("Run version");
     };
 
