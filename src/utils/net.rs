@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::env::current_exe;
 
 use anyhow::Result;
 use chrono::{Duration, Utc};
@@ -22,7 +22,7 @@ pub(crate) fn fabric_api_path(path: &str) -> String {
 
 pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
     let version_manifest_url = api_path("mc/game/version_manifest.json");
-    let cache_file = std::env::current_exe()?.parent().expect("infallible").join(CACHE_FILE);
+    let cache_file = current_exe()?.parent().expect("infallible").join(CACHE_FILE);
 
     // check if file exists and is not expired
     // if so, return cached data
