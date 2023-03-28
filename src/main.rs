@@ -10,7 +10,6 @@ use anyhow::Result;
 use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
 use itertools::Itertools;
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let mut cmd = command!()

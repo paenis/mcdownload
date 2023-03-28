@@ -25,7 +25,7 @@ macro_rules! defn_is_variant {
 /// will block any other variants that come after it
 ///
 /// # Example
-/// ```rust
+/// ```
 /// #[derive(Debug, PartialEq)]
 /// enum MyEnum {
 ///     A(u64),
