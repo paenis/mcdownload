@@ -153,11 +153,16 @@ async fn main() -> Result<()> {
             .find(|v| v.id == version)
             .unwrap_or_else(|| unreachable!()); // at least i think so
 
-        println!("Version: {}", version.id);
-        println!("Type: {}", version.release_type);
-        // println!("URL: {}", version.url);
-        println!("Release time: {}", version.release_time);
-        // println!("Updated: {}", version.time); // meta update time?
+        let time_format = "%-d %B %Y at %-I:%M:%S%P UTC";
+        let message = format!(
+            "Version {} ({})\nReleased: {}\nLast updated: {}",
+            version.id,
+            version.release_type,
+            version.release_time.format(&time_format),
+            version.time.format(&time_format),
+        );
+
+        println!("{}", message);
     } else if let Some(matches) = matches.subcommand_matches("install") {
         let manifest = manifest_thread.await??;
         let versions = manifest.versions;

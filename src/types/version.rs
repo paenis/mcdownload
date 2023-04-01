@@ -235,7 +235,7 @@ impl Iterator for GameVersionList {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct VersionDownload {
-    sha1: String, // (client|server)(_mappings)?
+    sha1: String, 
     size: u64,
     pub url: String,
 }
@@ -249,7 +249,7 @@ pub(crate) struct JavaVersionInfo {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct VersionMetadata {
-    pub downloads: HashMap<String, VersionDownload>,
+    pub downloads: HashMap<String, VersionDownload>, // client, server, windows_server (legacy) + mappings
     pub id: VersionNumber,
     #[serde(rename = "javaVersion")]
     pub java_version: JavaVersionInfo,
