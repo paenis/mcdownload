@@ -3,12 +3,17 @@
 pub(crate) mod types;
 pub(crate) mod utils;
 
-use crate::types::version::{GameVersion, VersionNumber};
+use std::{env::current_exe, fs, path::PathBuf};
+
+use crate::types::version::{GameVersion, VersionMetadata, VersionNumber};
 use crate::utils::net::get_version_manifest;
 
 use anyhow::Result;
-use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
+use clap::{
+    arg, command, crate_version, error::ErrorKind, value_parser, ArgAction, ArgGroup, Command,
+};
 use itertools::Itertools;
+use tokio::task::JoinSet;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -130,7 +135,7 @@ async fn main() -> Result<()> {
             .parse::<VersionNumber>()
             .unwrap_or_else(|v| {
                 cmd.error(
-                    clap::error::ErrorKind::ValueValidation,
+                    ErrorKind::ValueValidation,
                     format!("Version failed to parse: {}", v),
                 )
                 .exit()
@@ -138,7 +143,7 @@ async fn main() -> Result<()> {
 
         if !version_ids.contains(&&version) {
             cmd.error(
-                clap::error::ErrorKind::ValueValidation,
+                ErrorKind::ValueValidation,
                 format!("Invalid version: {}", version),
             )
             .exit();
@@ -172,7 +177,7 @@ async fn main() -> Result<()> {
 
             if valid.is_empty() {
                 cmd.error(
-                    clap::error::ErrorKind::ValueValidation,
+                    ErrorKind::ValueValidation,
                     format!("No valid versions found (got {})", invalid.len()),
                 )
                 .exit();
@@ -196,16 +201,69 @@ async fn main() -> Result<()> {
                 .filter(|v| valid.contains(&v.id))
                 .collect_vec();
 
+            let mut install_threads = JoinSet::new();
+
             for version in to_install_versions {
                 // dbg!(&version.id);
 
-                let url = version.url.clone(); // CANNOT be borrowed (unless i'm stupid (likely))
+                let meta_url = version.url.clone();
 
-                tokio::spawn(async move {
-                    let response = reqwest::get(url).await?.text().await?;
+                install_threads.spawn(async move {
+                    let version_meta: VersionMetadata = reqwest::get(meta_url).await?.json().await?;
+
+                    if !version_meta.downloads.contains_key("server") {
+                        println!("Skipping version {} (no server jar)", version_meta.id);
+                        return Ok::<(), reqwest::Error>(());
+                    }
+
+                    let dir: PathBuf = current_exe()
+                        .unwrap_or_else(|e| panic!("Failed to get current executable path: {}", e))
+                        .parent()
+                        .unwrap_or_else(|| unreachable!())
+                        .join(".versions")
+                        .join(&version_meta.id.to_string());
+
+                    if dir.exists() {
+                        println!("Skipping version {} (already installed)", version_meta.id);
+                        return Ok::<(), reqwest::Error>(());
+                    }
+
+                    let url = version_meta
+                        .downloads
+                        .get("server")
+                        .unwrap_or_else(|| unreachable!())
+                        .url
+                        .clone();
+                    let server_jar = reqwest::get(url).await?.bytes().await?;
+
+                    // write to disk
+                    fs::create_dir_all(&dir).unwrap_or_else(|e| {
+                        panic!(
+                            "Failed to create directory for version {}: {}",
+                            version_meta.id, e
+                        )
+                    });
+                    fs::write(dir.join("server.jar"), server_jar).unwrap_or_else(|e| {
+                        panic!(
+                            "Failed to write server jar for version {}: {}",
+                            version_meta.id, e
+                        )
+                    });
+
                     // dbg!(response);
                     Ok::<(), reqwest::Error>(())
                 });
+            }
+
+            while let Some(result) = install_threads.join_next().await {
+                let output = result?;
+                if let Err(e) = output {
+                    cmd.error(
+                        ErrorKind::ValueValidation,
+                        format!("Failed to install requested versions: {}", e),
+                    )
+                    .exit();
+                }
             }
         } else {
             println!("Installing latest release version");
@@ -220,8 +278,6 @@ async fn main() -> Result<()> {
                 Ok::<(), reqwest::Error>(())
             });
         }
-
-        std::thread::sleep(std::time::Duration::from_secs(2));
     } else if let Some(matches) = matches.subcommand_matches("run") {
         // println!("{:?}", versions);
         todo!("Run version");

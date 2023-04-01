@@ -22,7 +22,10 @@ pub(crate) fn fabric_api_path(path: &str) -> String {
 
 pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
     let version_manifest_url = api_path("mc/game/version_manifest.json");
-    let cache_file = current_exe()?.parent().expect("infallible").join(CACHE_FILE);
+    let cache_file = current_exe()?
+        .parent()
+        .expect("infallible")
+        .join(CACHE_FILE);
 
     // check if file exists and is not expired
     // if so, return cached data
@@ -41,7 +44,10 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
         .await?;
 
     // save to disk
-    let cached_response = CachedResponse::new(&response, Utc::now() + Duration::seconds(CACHE_EXPIRATION_TIME));
+    let cached_response = CachedResponse::new(
+        &response,
+        Utc::now() + Duration::seconds(CACHE_EXPIRATION_TIME),
+    );
     let data = serde_json::to_string(&cached_response)?;
     fs::write(cache_file, data).await?;
 

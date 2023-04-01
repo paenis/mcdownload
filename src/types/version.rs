@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Display, str::FromStr};
+use std::{cmp::Ordering, collections::HashMap, fmt::Display, str::FromStr};
 
 use crate::utils::macros::{defn_is_variant, parse_variants};
 
@@ -231,6 +231,35 @@ impl Iterator for GameVersionList {
     fn next(&mut self) -> Option<Self::Item> {
         self.versions.pop()
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct VersionDownload {
+    sha1: String, // (client|server)(_mappings)?
+    size: u64,
+    pub url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct JavaVersionInfo {
+    component: String,
+    #[serde(rename = "majorVersion")]
+    major_version: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct VersionMetadata {
+    pub downloads: HashMap<String, VersionDownload>,
+    pub id: VersionNumber,
+    #[serde(rename = "javaVersion")]
+    pub java_version: JavaVersionInfo,
+    // the rest of the fields are not used
+
+    // time: DateTime<FixedOffset>,
+    // #[serde(rename = "releaseTime")]
+    // releaseTime: DateTime<FixedOffset>,
+    // #[serde(rename = "type")]
+    // release_type: String,
 }
 
 #[cfg(test)]
