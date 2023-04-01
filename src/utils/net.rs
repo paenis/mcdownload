@@ -4,12 +4,15 @@ use anyhow::Result;
 use chrono::{Duration, Utc};
 use tokio::fs;
 
-use crate::types::{net::CachedResponse, version::GameVersionList};
+use crate::types::{
+    net::CachedResponse,
+    version::{GameVersion, GameVersionList, VersionMetadata},
+};
 
 const PISTON_API_URL: &str = "https://piston-meta.mojang.com/";
 const FABRIC_API_URL: &str = "https://meta.fabricmc.net/";
 
-const CACHE_FILE: &str = ".manifest.json";
+const CACHE_PATH: &str = ".meta";
 const CACHE_EXPIRATION_TIME: i64 = 60 * 10; // 10 minutes
 
 pub(crate) fn api_path(path: &str) -> String {
@@ -25,7 +28,12 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
     let cache_file = current_exe()?
         .parent()
         .expect("infallible")
-        .join(CACHE_FILE);
+        .join(CACHE_PATH)
+        .join("manifest.json");
+
+    if !cache_file.exists() {
+        fs::create_dir_all(cache_file.parent().expect("infallible")).await?;
+    }
 
     // check if file exists and is not expired
     // if so, return cached data
@@ -44,6 +52,42 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
         .await?;
 
     // save to disk
+    let cached_response = CachedResponse::new(
+        &response,
+        Utc::now() + Duration::seconds(CACHE_EXPIRATION_TIME),
+    );
+    let data = serde_json::to_string(&cached_response)?;
+    fs::write(cache_file, data).await?;
+
+    Ok(response)
+}
+
+pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<VersionMetadata> {
+    let meta_url = version.url.clone();
+
+    let cache_file = current_exe()?
+        .parent()
+        .expect("infallible")
+        .join(CACHE_PATH)
+        .join(format!("{}.json", version.id));
+
+    if !cache_file.exists() {
+        fs::create_dir_all(cache_file.parent().expect("infallible")).await?;
+    }
+
+    if let Ok(data) = fs::read_to_string(&cache_file).await {
+        if let Ok(cached) = serde_json::from_str::<CachedResponse<VersionMetadata>>(&data) {
+            if !cached.is_expired() {
+                return Ok(cached.data);
+            }
+        }
+    }
+
+    let response = reqwest::get(meta_url)
+        .await?
+        .json::<VersionMetadata>()
+        .await?;
+
     let cached_response = CachedResponse::new(
         &response,
         Utc::now() + Duration::seconds(CACHE_EXPIRATION_TIME),

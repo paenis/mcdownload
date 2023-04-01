@@ -3,17 +3,18 @@
 pub(crate) mod types;
 pub(crate) mod utils;
 
-use std::{env::current_exe, fs, path::PathBuf};
+use std::{env::current_exe, path::PathBuf, time::Duration};
 
 use crate::types::version::{GameVersion, VersionMetadata, VersionNumber};
-use crate::utils::net::get_version_manifest;
+use crate::utils::net::{get_version_manifest, get_version_metadata};
 
 use anyhow::Result;
 use clap::{
     arg, command, crate_version, error::ErrorKind, value_parser, ArgAction, ArgGroup, Command,
 };
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use tokio::task::JoinSet;
+use tokio::{fs, task::JoinSet};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -196,6 +197,8 @@ async fn main() -> Result<()> {
                 );
             }
 
+            println!();
+
             let to_install_versions = versions
                 .iter()
                 .filter(|v| valid.contains(&v.id))
@@ -203,17 +206,27 @@ async fn main() -> Result<()> {
 
             let mut install_threads = JoinSet::new();
 
-            for version in to_install_versions {
-                // dbg!(&version.id);
+            let bars = MultiProgress::new();
 
-                let meta_url = version.url.clone();
+            for version in to_install_versions {
+                let bar = bars.add(ProgressBar::new_spinner());
+                bar.set_style(
+                    ProgressStyle::with_template(
+                        "{prefix:.bold.blue.bright} {spinner:.green.bright} {wide_msg}",
+                    )
+                    .unwrap()
+                    .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏-"),
+                );
+                bar.enable_steady_tick(Duration::from_millis(100));
+                bar.set_prefix(format!("{}", version.id));
+
+                bar.set_message("Getting version metadata...");
+                let version_meta: VersionMetadata = get_version_metadata(&version).await?;
 
                 install_threads.spawn(async move {
-                    let version_meta: VersionMetadata = reqwest::get(meta_url).await?.json().await?;
-
                     if !version_meta.downloads.contains_key("server") {
-                        println!("Skipping version {} (no server jar)", version_meta.id);
-                        return Ok::<(), reqwest::Error>(());
+                        bar.finish_with_message("Cancelled (no server jar)");
+                        return Ok::<(), anyhow::Error>(());
                     }
 
                     let dir: PathBuf = current_exe()
@@ -224,8 +237,8 @@ async fn main() -> Result<()> {
                         .join(&version_meta.id.to_string());
 
                     if dir.exists() {
-                        println!("Skipping version {} (already installed)", version_meta.id);
-                        return Ok::<(), reqwest::Error>(());
+                        bar.finish_with_message("Cancelled (already installed)");
+                        return Ok::<(), anyhow::Error>(());
                     }
 
                     let url = version_meta
@@ -234,24 +247,30 @@ async fn main() -> Result<()> {
                         .unwrap_or_else(|| unreachable!())
                         .url
                         .clone();
+
+                    bar.set_message("Downloading server jar...");
                     let server_jar = reqwest::get(url).await?.bytes().await?;
 
                     // write to disk
-                    fs::create_dir_all(&dir).unwrap_or_else(|e| {
+                    bar.set_message("Writing server jar to disk...");
+                    fs::create_dir_all(&dir).await.unwrap_or_else(|e| {
                         panic!(
                             "Failed to create directory for version {}: {}",
                             version_meta.id, e
                         )
                     });
-                    fs::write(dir.join("server.jar"), server_jar).unwrap_or_else(|e| {
-                        panic!(
-                            "Failed to write server jar for version {}: {}",
-                            version_meta.id, e
-                        )
-                    });
+                    fs::write(dir.join("server.jar"), server_jar)
+                        .await
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "Failed to write server jar for version {}: {}",
+                                version_meta.id, e
+                            )
+                        });
 
                     // dbg!(response);
-                    Ok::<(), reqwest::Error>(())
+                    bar.finish_with_message("Done!");
+                    Ok::<(), anyhow::Error>(())
                 });
             }
 

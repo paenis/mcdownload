@@ -8,6 +8,7 @@ anyhow = "1.0.70"
 chrono = { version = "0.4.24", features = ["serde"] }
 clap = { version = "4.1.11", features = ["wrap_help", "cargo"] }
 derive_more = { version = "0.99.17", default-features = false, features = ["constructor", "display"] }
+indicatif = "0.17.3"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
 openssl = { version = "0.10.37", optional = true }
