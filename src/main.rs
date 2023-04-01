@@ -158,8 +158,8 @@ async fn main() -> Result<()> {
             "Version {} ({})\nReleased: {}\nLast updated: {}",
             version.id,
             version.release_type,
-            version.release_time.format(&time_format),
-            version.time.format(&time_format),
+            version.release_time.format(time_format),
+            version.time.format(time_format),
         );
 
         println!("{}", message);
