@@ -46,10 +46,7 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
     }
 
     // file doesn't exist or is expired, get fresh data
-    let response = reqwest::get(version_manifest_url)
-        .await?
-        .json::<GameVersionList>()
-        .await?;
+    let response: GameVersionList = reqwest::get(version_manifest_url).await?.json().await?;
 
     // save to disk
     let cached_response = CachedResponse::new(
@@ -83,10 +80,7 @@ pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<Versio
         }
     }
 
-    let response = reqwest::get(meta_url)
-        .await?
-        .json::<VersionMetadata>()
-        .await?;
+    let response: VersionMetadata = reqwest::get(meta_url).await?.json().await?;
 
     let cached_response = CachedResponse::new(
         &response,

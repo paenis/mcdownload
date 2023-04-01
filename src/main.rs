@@ -1,20 +1,18 @@
 #![warn(clippy::all)]
 
+pub(crate) mod app;
 pub(crate) mod types;
 pub(crate) mod utils;
 
-use std::{env::current_exe, path::PathBuf, time::Duration};
-
-use crate::types::version::{GameVersion, VersionMetadata, VersionNumber};
-use crate::utils::net::{get_version_manifest, get_version_metadata};
+use crate::app::install_versions;
+use crate::types::version::{GameVersion, VersionNumber};
+use crate::utils::net::get_version_manifest;
 
 use anyhow::Result;
 use clap::{
     arg, command, crate_version, error::ErrorKind, value_parser, ArgAction, ArgGroup, Command,
 };
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use tokio::{fs, task::JoinSet};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -167,13 +165,9 @@ async fn main() -> Result<()> {
         let latest = manifest.latest;
 
         if let Some(matches) = matches.get_many::<String>("version") {
-            let to_install = matches
+            let (valid, invalid): (Vec<_>, Vec<_>) = matches
                 .into_iter()
                 .map(|v| v.parse::<VersionNumber>().expect("Failed to parse version"))
-                .collect_vec();
-
-            let (valid, invalid): (Vec<_>, Vec<_>) = to_install
-                .into_iter()
                 .partition(|v| version_ids.contains(&&v));
 
             if valid.is_empty() {
@@ -184,118 +178,38 @@ async fn main() -> Result<()> {
                 .exit();
             }
 
-            println!(
-                "Installing {} versions: {}",
+            let mut message = format!(
+                "Installing {} version{}: {}",
                 valid.len(),
+                if valid.len() == 1 { "" } else { "s" },
                 valid.iter().map(ToString::to_string).join(", ")
             );
+
             if !invalid.is_empty() {
-                println!(
-                    "(Skipped {} invalid versions: {})",
+                message.push_str(&format!(
+                    " (skipped {} invalid version{}: {})",
                     invalid.len(),
+                    if invalid.len() == 1 { "" } else { "s" },
                     invalid.iter().map(ToString::to_string).join(", ")
-                );
+                ));
             }
 
-            println!();
+            println!("{}\n", message);
 
             let to_install_versions = versions
                 .iter()
                 .filter(|v| valid.contains(&v.id))
                 .collect_vec();
 
-            let mut install_threads = JoinSet::new();
-
-            let bars = MultiProgress::new();
-
-            for version in to_install_versions {
-                let bar = bars.add(ProgressBar::new_spinner());
-                bar.set_style(
-                    ProgressStyle::with_template(
-                        "{prefix:.bold.blue.bright} {spinner:.green.bright} {wide_msg}",
-                    )
-                    .unwrap()
-                    .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏-"),
-                );
-                bar.enable_steady_tick(Duration::from_millis(100));
-                bar.set_prefix(format!("{}", version.id));
-
-                bar.set_message("Getting version metadata...");
-                let version_meta: VersionMetadata = get_version_metadata(&version).await?;
-
-                install_threads.spawn(async move {
-                    if !version_meta.downloads.contains_key("server") {
-                        bar.finish_with_message("Cancelled (no server jar)");
-                        return Ok::<(), anyhow::Error>(());
-                    }
-
-                    let dir: PathBuf = current_exe()
-                        .unwrap_or_else(|e| panic!("Failed to get current executable path: {}", e))
-                        .parent()
-                        .unwrap_or_else(|| unreachable!())
-                        .join(".versions")
-                        .join(&version_meta.id.to_string());
-
-                    if dir.exists() {
-                        bar.finish_with_message("Cancelled (already installed)");
-                        return Ok::<(), anyhow::Error>(());
-                    }
-
-                    let url = version_meta
-                        .downloads
-                        .get("server")
-                        .unwrap_or_else(|| unreachable!())
-                        .url
-                        .clone();
-
-                    bar.set_message("Downloading server jar...");
-                    let server_jar = reqwest::get(url).await?.bytes().await?;
-
-                    // write to disk
-                    bar.set_message("Writing server jar to disk...");
-                    fs::create_dir_all(&dir).await.unwrap_or_else(|e| {
-                        panic!(
-                            "Failed to create directory for version {}: {}",
-                            version_meta.id, e
-                        )
-                    });
-                    fs::write(dir.join("server.jar"), server_jar)
-                        .await
-                        .unwrap_or_else(|e| {
-                            panic!(
-                                "Failed to write server jar for version {}: {}",
-                                version_meta.id, e
-                            )
-                        });
-
-                    // dbg!(response);
-                    bar.finish_with_message("Done!");
-                    Ok::<(), anyhow::Error>(())
-                });
-            }
-
-            while let Some(result) = install_threads.join_next().await {
-                let output = result?;
-                if let Err(e) = output {
-                    cmd.error(
-                        ErrorKind::ValueValidation,
-                        format!("Failed to install requested versions: {}", e),
-                    )
-                    .exit();
-                }
-            }
+            install_versions(to_install_versions).await?;
         } else {
-            println!("Installing latest release version");
+            println!("Installing latest release version\n");
             let latest = versions
                 .iter()
                 .find(|v| v.id == latest.release)
                 .expect("No version matching latest release found");
-            let url = latest.url.clone();
-            tokio::spawn(async move {
-                let response = reqwest::get(url).await?.text().await?;
-                dbg!(response);
-                Ok::<(), reqwest::Error>(())
-            });
+
+            install_versions(vec![latest]).await?;
         }
     } else if let Some(matches) = matches.subcommand_matches("run") {
         // println!("{:?}", versions);
