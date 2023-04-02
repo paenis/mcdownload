@@ -21,6 +21,7 @@ serde_json = "1.0.94"
 serde_with = "2.3.1"
 term_size = "0.3.2"
 tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros", "fs"] }
+toml = { version = "0.7.3", features = ["preserve_order"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 zip = "0.6.4"

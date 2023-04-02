@@ -1,13 +1,23 @@
-use std::{env::current_exe, path::PathBuf, time::Duration};
+use std::{
+    env::current_exe,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use crate::{
-    types::version::{GameVersion, VersionMetadata},
+    types::{
+        meta::InstanceSettings,
+        version::{GameVersion, VersionMetadata},
+    },
     utils::net::{download_jre, get_version_metadata},
 };
 
 use anyhow::{anyhow, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::{fs, task::JoinSet};
+
+const DEFAULT_JVM_ARGS: &[&str] = &["-Xms4G", "-Xmx4G"];
 
 // ideally there is one public function for each subcommand
 
@@ -41,14 +51,14 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
                 return Ok::<(), anyhow::Error>(());
             }
 
-            let dir: PathBuf = current_exe()
+            let instance_dir: PathBuf = current_exe()
                 .unwrap_or_else(|e| panic!("Failed to get current executable path: {}", e))
                 .parent()
                 .unwrap_or_else(|| unreachable!())
                 .join(".versions")
                 .join(&version_meta.id.to_string());
 
-            if dir.exists() {
+            if instance_dir.exists() {
                 pb_server.finish_with_message("Cancelled (already installed)");
                 return Ok::<(), anyhow::Error>(());
             }
@@ -65,13 +75,13 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
             // write to disk
             pb_server.set_message("Writing server jar to disk...");
-            fs::create_dir_all(&dir).await.unwrap_or_else(|e| {
+            fs::create_dir_all(&instance_dir).await.unwrap_or_else(|e| {
                 panic!(
                     "Failed to create directory for version {}: {}",
                     version_meta.id, e
                 )
             });
-            fs::write(dir.join("server.jar"), server_jar)
+            fs::write(instance_dir.join("server.jar"), server_jar)
                 .await
                 .unwrap_or_else(|e| {
                     panic!(
@@ -79,6 +89,13 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
                         version_meta.id, e
                     )
                 });
+
+            // write settings
+            pb_server.set_message("Writing settings...");
+            let settings =
+                InstanceSettings::new(DEFAULT_JVM_ARGS.iter().map(|s| s.to_string()).collect());
+
+            write_settings(&settings, &instance_dir).await?;
 
             pb_server.finish_with_message("Done!");
             Ok::<(), anyhow::Error>(())
@@ -126,7 +143,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 //     install_versions(vec![version]).await
 // }
 
-// major_version is 8, 11, 17 ONLY
+// major_version is 8, 16, 17 ONLY
 async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     let jre_dir: PathBuf = current_exe()
         .unwrap_or_else(|e| panic!("Failed to get current executable path: {}", e))
@@ -239,6 +256,22 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     pb.finish_with_message("Done!");
 
     Ok(())
+}
+
+async fn write_settings(settings: &InstanceSettings, path: &Path) -> Result<()> {
+    fs::create_dir_all(path.parent().unwrap()).await?;
+    let mut file = fs::File::create(path).await?;
+    file.write_all(toml::to_string(settings)?.as_bytes())
+        .await?;
+
+    Ok(())
+}
+
+async fn read_settings(path: &Path) -> Result<InstanceSettings> {
+    let mut file = fs::File::open(path).await?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).await?;
+    Ok(toml::from_str(&contents)?)
 }
 
 #[cfg(test)]
