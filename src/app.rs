@@ -1,13 +1,13 @@
 use std::{
     env::current_exe,
-    io::{BufReader, Cursor, Read},
+    io::Read,
     path::PathBuf,
     time::Duration,
 };
 
 use crate::{
     types::version::{GameVersion, VersionMetadata},
-    utils::net::{download_jdk, get_version_metadata},
+    utils::net::{download_jre, get_version_metadata},
 };
 
 use anyhow::{anyhow, Result};
@@ -18,7 +18,7 @@ use tokio::{fs, task::JoinSet};
 
 pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> {
     let mut install_threads = JoinSet::new();
-    let mut jdk_threads = JoinSet::new();
+    let mut jre_threads = JoinSet::new();
     let bars = MultiProgress::new();
 
     let bar_style = ProgressStyle::with_template(
@@ -27,7 +27,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
     .unwrap()
     .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏-");
 
-    let mut jdks_installed: Vec<u8> = Vec::new();
+    let mut jres_installed: Vec<u8> = Vec::new();
 
     for version in versions {
         let pb_server = bars.add(ProgressBar::new_spinner());
@@ -37,7 +37,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
         pb_server.set_message("Getting version metadata...");
         let version_meta: VersionMetadata = get_version_metadata(version).await?;
-        let jdk_version = version_meta.java_version.major_version.clone();
+        let jre_version = version_meta.java_version.major_version.clone();
 
         // spawn a thread to install the version
         install_threads.spawn(async move {
@@ -89,23 +89,23 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
             Ok::<(), anyhow::Error>(())
         });
 
-        // if the JDK is already installed, skip it
-        if jdks_installed.contains(&jdk_version) {
+        // if the JRE is already installed, skip it
+        if jres_installed.contains(&jre_version) {
             continue;
         } else {
-            jdks_installed.push(jdk_version);
+            jres_installed.push(jre_version);
         }
 
-        let pb_jdk = bars.add(ProgressBar::new_spinner());
-        pb_jdk.set_style(bar_style.clone());
-        pb_jdk.enable_steady_tick(Duration::from_millis(100));
-        pb_jdk.set_prefix(format!("JDK {} for {}", jdk_version, version.id));
+        let pb_jre = bars.add(ProgressBar::new_spinner());
+        pb_jre.set_style(bar_style.clone());
+        pb_jre.enable_steady_tick(Duration::from_millis(100));
+        pb_jre.set_prefix(format!("JRE {} for {}", jre_version, version.id));
 
-        // at the same time, spawn a thread to install the JDK
-        jdk_threads.spawn(async move {
-            pb_jdk.set_message("Installing JDK...");
-            install_jdk(&jdk_version, &pb_jdk).await?;
-            pb_jdk.finish_with_message("Done!");
+        // at the same time, spawn a thread to install the JRE
+        jre_threads.spawn(async move {
+            pb_jre.set_message("Installing JRE...");
+            install_jre(&jre_version, &pb_jre).await?;
+            pb_jre.finish_with_message("Done!");
             Ok::<(), anyhow::Error>(())
         });
     }
@@ -117,9 +117,9 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
         }
     }
 
-    while let Some(result) = jdk_threads.join_next().await {
+    while let Some(result) = jre_threads.join_next().await {
         if let Err(e) = result? {
-            let context = format!("Failed to install JDK: {}", e);
+            let context = format!("Failed to install JRE: {}", e);
             return Err(anyhow!(context));
         }
     }
@@ -132,42 +132,44 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 // }
 
 // major_version is 8, 11, 17 ONLY
-async fn install_jdk(major_version: &u8, pb: &ProgressBar) -> Result<()> {
-    let jdk_dir: PathBuf = current_exe()
+async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
+    let jre_dir: PathBuf = current_exe()
         .unwrap_or_else(|e| panic!("Failed to get current executable path: {}", e))
         .parent()
         .unwrap_or_else(|| unreachable!())
-        .join(".jdk")
+        .join(".jre")
         .join(major_version.to_string());
 
-    if jdk_dir.exists() {
+    if jre_dir.exists() {
         pb.finish_with_message("Cancelled (already installed)");
         return Ok(());
     }
 
-    pb.set_message("Downloading JDK...");
-    let jdk = download_jdk(major_version).await?;
+    pb.set_message("Downloading JRE...");
+    let jre = download_jre(major_version).await?;
 
-    pb.set_message("Extracting JDK...");
+    pb.set_message("Extracting JRE...");
 
     {
         #![cfg(target_os = "linux")]
+
+        use std::os::unix::fs::PermissionsExt;
 
         use bytes::Buf;
         use flate2::read::GzDecoder;
         use tar::Archive;
 
-        // archive structure is jdk*/bin/java
-        // we want to extract the contents of jdk* to the jdk directory
-        let mut reader = jdk.reader();
+        // archive structure is jre*/bin/java
+        // we want to extract the contents of jre* to the jre directory
+        let mut reader = jre.reader();
         let tar = GzDecoder::new(&mut reader);
         let mut archive = Archive::new(tar);
 
         let mut entries = archive.entries()?;
 
-        fs::create_dir_all(&jdk_dir).await.unwrap_or_else(|e| {
+        fs::create_dir_all(&jre_dir).await.unwrap_or_else(|e| {
             panic!(
-                "Failed to create directory for JDK {}: {}",
+                "Failed to create directory for JRE {}: {}",
                 major_version, e
             )
         });
@@ -177,37 +179,39 @@ async fn install_jdk(major_version: &u8, pb: &ProgressBar) -> Result<()> {
             let path = entry.path()?;
             // strip the first directory
             let path: PathBuf = path.components().skip(1).collect();
-            let path = jdk_dir.join(path);
+            let path = jre_dir.join(path);
             entry.unpack(path)?;
         }
 
         // make the java binary executable
-        let java_path = jdk_dir.join("bin").join("java");
+        let java_path = jre_dir.join("bin").join("java");
         let mut perms = fs::metadata(&java_path).await?.permissions();
         perms.set_mode(0o755);
         fs::set_permissions(&java_path, perms).await?;
 
         // sanity check
-        let java_path = jdk_dir.join("bin").join("java");
+        let java_path = jre_dir.join("bin").join("java");
         if !java_path.exists() {
-            return Err(anyhow!("Failed to extract JDK"));
+            return Err(anyhow!("Failed to extract JRE"));
         }
     }
 
     {
         #![cfg(target_os = "windows")]
 
+        use std::io::{Cursor, BufReader};
+
         use zip::ZipArchive;
 
         // same as above but with zip
-        fs::create_dir_all(&jdk_dir).await.unwrap_or_else(|e| {
+        fs::create_dir_all(&jre_dir).await.unwrap_or_else(|e| {
             panic!(
-                "Failed to create directory for JDK {}: {}",
+                "Failed to create directory for JRE {}: {}",
                 major_version, e
             )
         });
 
-        let reader: BufReader<Cursor<Vec<u8>>> = BufReader::new(Cursor::new(jdk.into()));
+        let reader: BufReader<Cursor<Vec<u8>>> = BufReader::new(Cursor::new(jre.into()));
         let mut archive = ZipArchive::new(reader)?;
 
         // this crate is so bad
@@ -217,10 +221,10 @@ async fn install_jdk(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 
             // strip the first directory
             let path: PathBuf = path.components().skip(1).collect();
-            let path = jdk_dir.join(path);
+            let path = jre_dir.join(path);
 
-            std::fs::create_dir_all(&path)?;
-            if path.is_dir() {
+            if entry.is_dir() {
+                std::fs::create_dir_all(path)?;
                 continue;
             }
 
@@ -231,9 +235,9 @@ async fn install_jdk(major_version: &u8, pb: &ProgressBar) -> Result<()> {
         }
 
         // sanity check
-        let java_path = jdk_dir.join("bin").join("java.exe");
+        let java_path = jre_dir.join("bin").join("java.exe");
         if !java_path.exists() {
-            return Err(anyhow!("Failed to extract JDK"));
+            return Err(anyhow!("Failed to extract JRE"));
         }
     }
 

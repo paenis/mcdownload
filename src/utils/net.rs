@@ -93,14 +93,14 @@ pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<Versio
     Ok(response)
 }
 
-pub(crate) async fn download_jdk(major_version: &u8) -> Result<Bytes> {
+pub(crate) async fn download_jre(major_version: &u8) -> Result<Bytes> {
     let url = format!(
         "https://api.adoptium.net/v3/binary/latest/{feature_version}/{release_type}/{os}/{arch}/{image_type}/{jvm_impl}/{heap_size}/{vendor}",
         feature_version = major_version,
         release_type = "ga",
         os = std::env::consts::OS, // fine
         arch = std::env::consts::ARCH,
-        image_type = "jdk",
+        image_type = "jre",
         jvm_impl = "hotspot",
         heap_size = "normal",
         vendor = "eclipse",
