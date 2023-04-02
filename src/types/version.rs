@@ -235,7 +235,7 @@ impl Iterator for GameVersionList {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct VersionDownload {
-    sha1: String, 
+    sha1: String,
     size: u64,
     pub url: String,
 }
@@ -244,7 +244,7 @@ pub(crate) struct VersionDownload {
 pub(crate) struct JavaVersionInfo {
     component: String,
     #[serde(rename = "majorVersion")]
-    major_version: u8,
+    pub major_version: u8,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

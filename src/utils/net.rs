@@ -1,6 +1,7 @@
 use std::env::current_exe;
 
 use anyhow::Result;
+use bytes::Bytes;
 use chrono::{Duration, Utc};
 use tokio::fs;
 
@@ -88,6 +89,24 @@ pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<Versio
     );
     let data = serde_json::to_string(&cached_response)?;
     fs::write(cache_file, data).await?;
+
+    Ok(response)
+}
+
+pub(crate) async fn download_jdk(major_version: &u8) -> Result<Bytes> {
+    let url = format!(
+        "https://api.adoptium.net/v3/binary/latest/{feature_version}/{release_type}/{os}/{arch}/{image_type}/{jvm_impl}/{heap_size}/{vendor}",
+        feature_version = major_version,
+        release_type = "ga",
+        os = std::env::consts::OS, // fine
+        arch = std::env::consts::ARCH,
+        image_type = "jdk",
+        jvm_impl = "hotspot",
+        heap_size = "normal",
+        vendor = "eclipse",
+    );
+
+    let response = reqwest::get(url).await?.bytes().await?;
 
     Ok(response)
 }

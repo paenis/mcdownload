@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.70"
+bytes = "1.4.0"
 chrono = { version = "0.4.24", features = ["serde"] }
 clap = { version = "4.1.11", features = ["wrap_help", "cargo"] }
 derive_more = { version = "0.99.17", default-features = false, features = ["constructor", "display"] }
@@ -20,6 +21,13 @@ serde_json = "1.0.94"
 serde_with = "2.3.1"
 term_size = "0.3.2"
 tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros", "fs"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+zip = "0.6.4"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+flate2 = "1.0.25"
+tar = "0.4.38"
 
 [features]
 vendored-openssl = ["openssl/vendored"]
