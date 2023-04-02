@@ -110,3 +110,28 @@ pub(crate) async fn download_jre(major_version: &u8) -> Result<Bytes> {
 
     Ok(response)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_version_manifest() {
+        let manifest = get_version_manifest().await.unwrap();
+        assert!(manifest.versions.len() > 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_version_metadata() {
+        let manifest = get_version_manifest().await.unwrap();
+        let version = manifest.versions.get(0).unwrap();
+        let metadata = get_version_metadata(version).await.unwrap();
+        assert!(metadata.downloads.get("server").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_download_jre() {
+        let jre = download_jre(&8).await.unwrap();
+        assert!(jre.len() > 0);
+    }
+}

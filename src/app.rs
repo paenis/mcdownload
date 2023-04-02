@@ -240,3 +240,39 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_install_jre() {
+        // remove the jre directory if the test panics
+        std::panic::set_hook(Box::new(|_| {
+            std::fs::remove_dir_all(
+                current_exe()
+                    .unwrap()
+                    .parent()
+                    .unwrap()
+                    .join(PathBuf::from(".jre/8")),
+            )
+            .unwrap();
+        }));
+
+        install_jre(&8, &ProgressBar::hidden()).await.unwrap();
+
+        let path = current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join(PathBuf::from(".jre/8/bin"));
+
+        match std::env::consts::OS {
+            "windows" => assert!(path.join("java.exe").exists()),
+            "linux" => assert!(path.join("java").exists()),
+            _ => assert!(false),
+        }
+
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+}
