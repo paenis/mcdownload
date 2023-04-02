@@ -32,7 +32,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
         pb_server.set_message("Getting version metadata...");
         let version_meta: VersionMetadata = get_version_metadata(version).await?;
-        let jre_version = version_meta.java_version.major_version.clone();
+        let jre_version = version_meta.java_version.major_version;
 
         // spawn a thread to install the version
         install_threads.spawn(async move {
@@ -100,7 +100,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
         jre_threads.spawn(async move {
             pb_jre.set_message("Installing JRE...");
             install_jre(&jre_version, &pb_jre).await?;
-            pb_jre.finish_with_message("Done!");
+
             Ok::<(), anyhow::Error>(())
         });
     }
