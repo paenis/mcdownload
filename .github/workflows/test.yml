@@ -70,6 +70,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
 
       - name: Cache
+        if: matrix.target == ''
         uses: Swatinem/rust-cache@v2
 
       - name: Use Cross
