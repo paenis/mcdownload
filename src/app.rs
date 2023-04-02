@@ -1,9 +1,4 @@
-use std::{
-    env::current_exe,
-    io::Read,
-    path::PathBuf,
-    time::Duration,
-};
+use std::{env::current_exe, path::PathBuf, time::Duration};
 
 use crate::{
     types::version::{GameVersion, VersionMetadata},
@@ -167,7 +162,7 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 
         let mut entries = archive.entries()?;
 
-        fs::create_dir_all(&jre_dir).await.unwrap_or_else(|e| {
+        std::fs::create_dir_all(&jre_dir).unwrap_or_else(|e| {
             panic!(
                 "Failed to create directory for JRE {}: {}",
                 major_version, e
@@ -185,9 +180,9 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 
         // make the java binary executable
         let java_path = jre_dir.join("bin").join("java");
-        let mut perms = fs::metadata(&java_path).await?.permissions();
+        let mut perms = std::fs::metadata(&java_path)?.permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(&java_path, perms).await?;
+        std::fs::set_permissions(&java_path, perms)?;
 
         // sanity check
         let java_path = jre_dir.join("bin").join("java");
@@ -199,7 +194,7 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     {
         #![cfg(target_os = "windows")]
 
-        use std::io::{Cursor, BufReader};
+        use std::io::{BufReader, Cursor, Read};
 
         use zip::ZipArchive;
 
