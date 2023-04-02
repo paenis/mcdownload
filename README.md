@@ -11,3 +11,4 @@
   - alternative outputs (JSON/debug/etc.) for info/list commands
   - `-i`/`--installed` filter for list command
   - implement run
+  - `eyre`/`color-eyre` over `anyhow`?

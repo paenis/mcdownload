@@ -95,7 +95,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
             let settings =
                 InstanceSettings::new(DEFAULT_JVM_ARGS.iter().map(|s| s.to_string()).collect());
 
-            write_settings(&settings, &instance_dir).await?;
+            write_settings(&settings, &instance_dir.join("settings.toml")).await?;
 
             pb_server.finish_with_message("Done!");
             Ok::<(), anyhow::Error>(())
