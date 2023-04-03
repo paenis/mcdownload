@@ -137,13 +137,7 @@ async fn main() -> Result<()> {
             .get_one::<String>("version")
             .expect("No version provided")
             .parse::<VersionNumber>()
-            .unwrap_or_else(|v| {
-                cmd.error(
-                    ErrorKind::ValueValidation,
-                    format!("Version failed to parse: {}", v),
-                )
-                .exit()
-            });
+            .expect("infallible");
 
         if !version_ids.contains(&&version) {
             cmd.error(
@@ -177,11 +171,7 @@ async fn main() -> Result<()> {
         if let Some(matches) = matches.get_many::<String>("version") {
             let (valid, invalid): (Vec<_>, Vec<_>) = matches
                 .into_iter()
-                .map(|v| {
-                    v.parse::<VersionNumber>()
-                        .wrap_err(format!("{}", v))
-                        .unwrap()
-                })
+                .map(|v| v.parse::<VersionNumber>().expect("infallible"))
                 .partition(|v| version_ids.contains(&&v));
 
             if valid.is_empty() {

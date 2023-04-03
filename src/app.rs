@@ -27,8 +27,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
     let bar_style = ProgressStyle::with_template(
         "{prefix:.bold.blue.bright} {spinner:.green.bright} {wide_msg}",
-    )
-    .unwrap()
+    )?
     .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏-");
 
     let mut jres_installed: Vec<u8> = Vec::new();
