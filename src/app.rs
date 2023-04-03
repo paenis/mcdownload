@@ -36,8 +36,8 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
     for version in versions {
         let pb_server = bars.add(ProgressBar::new_spinner());
         pb_server.set_style(bar_style.clone());
-        pb_server.enable_steady_tick(Duration::from_millis(100));
         pb_server.set_prefix(format!("{}", version.id));
+        pb_server.enable_steady_tick(Duration::from_millis(100));
 
         pb_server.set_message("Getting version metadata...");
         let version_meta: VersionMetadata = get_version_metadata(version).await?;
@@ -106,8 +106,8 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
         let pb_jre = bars.add(ProgressBar::new_spinner());
         pb_jre.set_style(bar_style.clone());
-        pb_jre.enable_steady_tick(Duration::from_millis(100));
         pb_jre.set_prefix(format!("JRE {} for {}", jre_version, version.id));
+        pb_jre.enable_steady_tick(Duration::from_millis(100));
 
         // at the same time, spawn a thread to install the JRE
         install_threads.spawn(async move {

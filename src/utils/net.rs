@@ -2,7 +2,8 @@ use std::env::current_exe;
 
 use bytes::Bytes;
 use chrono::{Duration, Utc};
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{eyre, Result};
+use reqwest::StatusCode;
 use tokio::fs;
 
 use crate::types::{
@@ -106,9 +107,14 @@ pub(crate) async fn download_jre(major_version: &u8) -> Result<Bytes> {
         vendor = "eclipse",
     );
 
-    let response = reqwest::get(url).await?.bytes().await?;
+    let response = reqwest::get(&url).await?;
 
-    Ok(response)
+    match response.status() {
+        StatusCode::TEMPORARY_REDIRECT | StatusCode::OK => Ok(response.bytes().await?),
+        StatusCode::BAD_REQUEST => Err(eyre!("Bad input parameter in URL: {url}")),
+        StatusCode::NOT_FOUND => Err(eyre!("No binary found for the given parameters: {url}")),
+        status => Err(eyre!("Unexpected error (status code {status}): {url}")),
+    }
 }
 
 #[cfg(test)]
