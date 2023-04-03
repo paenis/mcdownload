@@ -1,8 +1,8 @@
 use std::env::current_exe;
 
-use anyhow::Result;
 use bytes::Bytes;
 use chrono::{Duration, Utc};
+use color_eyre::eyre::Result;
 use tokio::fs;
 
 use crate::types::{

@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.70"
 bytes = "1.4.0"
 chrono = { version = "0.4.24", features = ["serde"] }
 clap = { version = "4.1.11", features = ["wrap_help", "cargo"] }
+color-eyre = { version = "0.6.2", default-features = false }
 derive_more = { version = "0.99.17", default-features = false, features = ["constructor", "display"] }
 indicatif = "0.17.3"
 itertools = "0.10.5"

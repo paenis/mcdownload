@@ -1,5 +1,7 @@
 #![warn(clippy::all)]
 
+//! A tool for managing Minecraft server versions
+
 pub(crate) mod app;
 pub(crate) mod types;
 pub(crate) mod utils;
@@ -8,14 +10,16 @@ use crate::app::install_versions;
 use crate::types::version::{GameVersion, VersionNumber};
 use crate::utils::net::get_version_manifest;
 
-use anyhow::Result;
 use clap::{
     arg, command, crate_version, error::ErrorKind, value_parser, ArgAction, ArgGroup, Command,
 };
+use color_eyre::eyre::{eyre, Result};
 use itertools::Itertools;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    color_eyre::install()?;
+
     let mut cmd = command!()
         .about("A tool for managing Minecraft versions")
         .version(crate_version!())
@@ -81,10 +85,14 @@ async fn main() -> Result<()> {
     let manifest_thread = tokio::spawn(async move {
         let manifest = get_version_manifest().await?;
 
-        Ok::<_, anyhow::Error>(manifest)
+        Ok::<_, color_eyre::eyre::Report>(manifest)
     });
 
     if let Some(matches) = matches.subcommand_matches("list") {
+        if term_size::dimensions().is_none() {
+            return Ok(());
+        } // no terminal output, so don't bother
+
         let versions = manifest_thread.await??.versions;
         let versions_filtered: Vec<&GameVersion> = if matches.get_flag("release") {
             versions.iter().filter(|v| v.id.is_release()).collect_vec()
@@ -111,12 +119,9 @@ async fn main() -> Result<()> {
             .expect("No versions found")
             + 1;
 
-        for chunk in versions_filtered.chunks(
-            term_size::dimensions()
-                .expect("No terminal output (what were you thinking?)")
-                .0
-                / (max_len + 1),
-        ) {
+        for chunk in versions_filtered
+            .chunks(term_size::dimensions().expect("checked above").0 / (max_len + 1))
+        {
             let row = chunk
                 .iter()
                 .map(|v| format!("{:width$}", v.id.to_string(), width = max_len))
@@ -151,7 +156,7 @@ async fn main() -> Result<()> {
         let version = versions
             .iter()
             .find(|v| v.id == version)
-            .unwrap_or_else(|| unreachable!()); // at least i think so
+            .expect("infallible"); // checked above
 
         let time_format = "%-d %B %Y at %-I:%M:%S%P UTC";
         let message = format!(
@@ -212,7 +217,7 @@ async fn main() -> Result<()> {
             let latest = versions
                 .iter()
                 .find(|v| v.id == latest.release)
-                .expect("No version matching latest release found");
+                .ok_or_else(|| eyre!("No latest release version found"))?;
 
             install_versions(vec![latest]).await?;
         }

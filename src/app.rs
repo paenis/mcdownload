@@ -12,7 +12,7 @@ use crate::{
     utils::net::{download_jre, get_version_metadata},
 };
 
-use anyhow::{anyhow, Result};
+use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::{fs, task::JoinSet};
@@ -48,25 +48,25 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
         install_threads.spawn(async move {
             if !version_meta.downloads.contains_key("server") {
                 pb_server.finish_with_message("Cancelled (no server jar)");
-                return Ok::<(), anyhow::Error>(());
+                return Ok::<(), eyre::Report>(());
             }
 
             let instance_dir: PathBuf = current_exe()
-                .unwrap_or_else(|e| panic!("Failed to get current executable path: {}", e))
+                .wrap_err("Failed to get current executable path")?
                 .parent()
-                .unwrap_or_else(|| unreachable!())
+                .expect("infallible")
                 .join(".versions")
                 .join(&version_meta.id.to_string());
 
             if instance_dir.exists() {
                 pb_server.finish_with_message("Cancelled (already installed)");
-                return Ok::<(), anyhow::Error>(());
+                return Ok::<(), eyre::Report>(());
             }
 
             let url = version_meta
                 .downloads
                 .get("server")
-                .unwrap_or_else(|| unreachable!())
+                .expect("infallible")
                 .url
                 .clone();
 
@@ -75,20 +75,17 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
             // write to disk
             pb_server.set_message("Writing server jar to disk...");
-            fs::create_dir_all(&instance_dir).await.unwrap_or_else(|e| {
-                panic!(
-                    "Failed to create directory for version {}: {}",
-                    version_meta.id, e
-                )
-            });
+            fs::create_dir_all(&instance_dir).await.wrap_err(format!(
+                "Failed to create instance directory for {}",
+                version_meta.id
+            ))?;
+
             fs::write(instance_dir.join("server.jar"), server_jar)
                 .await
-                .unwrap_or_else(|e| {
-                    panic!(
-                        "Failed to write server jar for version {}: {}",
-                        version_meta.id, e
-                    )
-                });
+                .wrap_err(format!(
+                    "Failed to write server jar for {}",
+                    version_meta.id
+                ))?;
 
             // write settings
             pb_server.set_message("Writing settings...");
@@ -98,7 +95,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
             write_settings(&settings, &instance_dir.join("settings.toml")).await?;
 
             pb_server.finish_with_message("Done!");
-            Ok::<(), anyhow::Error>(())
+            Ok::<(), eyre::Report>(())
         });
 
         // if the JRE is already installed, skip it
@@ -118,22 +115,16 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
             pb_jre.set_message("Installing JRE...");
             install_jre(&jre_version, &pb_jre).await?;
 
-            Ok::<(), anyhow::Error>(())
+            Ok::<(), eyre::Report>(())
         });
     }
 
     while let Some(result) = install_threads.join_next().await {
-        if let Err(e) = result? {
-            let context = format!("Failed to install version: {}", e);
-            return Err(anyhow!(context));
-        }
+        result?.wrap_err("Failed to install version")?;
     }
 
     while let Some(result) = jre_threads.join_next().await {
-        if let Err(e) = result? {
-            let context = format!("Failed to install JRE: {}", e);
-            return Err(anyhow!(context));
-        }
+        result?.wrap_err("Failed to install JRE")?;
     }
 
     Ok(())
@@ -146,9 +137,9 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 // major_version is 8, 16, 17 ONLY
 async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     let jre_dir: PathBuf = current_exe()
-        .unwrap_or_else(|e| panic!("Failed to get current executable path: {}", e))
+        .wrap_err("Failed to get current executable path")?
         .parent()
-        .unwrap_or_else(|| unreachable!())
+        .expect("infallible")
         .join(".jre")
         .join(major_version.to_string());
 
@@ -179,12 +170,9 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 
         let mut entries = archive.entries()?;
 
-        std::fs::create_dir_all(&jre_dir).unwrap_or_else(|e| {
-            panic!(
-                "Failed to create directory for JRE {}: {}",
-                major_version, e
-            )
-        });
+        std::fs::create_dir_all(&jre_dir).wrap_err(format!(
+            "Failed to create directory for JRE {major_version}"
+        ))?;
 
         while let Some(entry) = entries.next() {
             let mut entry = entry?;
@@ -204,7 +192,10 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
         // sanity check
         let java_path = jre_dir.join("bin").join("java");
         if !java_path.exists() {
-            return Err(anyhow!("Failed to extract JRE"));
+            return Err(eyre!(
+                "Failed to extract JRE ({} does not exist)",
+                java_path.display()
+            ));
         }
     }
 
@@ -216,12 +207,9 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
         use zip::ZipArchive;
 
         // same as above but with zip
-        fs::create_dir_all(&jre_dir).await.unwrap_or_else(|e| {
-            panic!(
-                "Failed to create directory for JRE {}: {}",
-                major_version, e
-            )
-        });
+        fs::create_dir_all(&jre_dir).await.wrap_err(format!(
+            "Failed to create directory for JRE {major_version}",
+        ))?;
 
         let reader: BufReader<Cursor<Vec<u8>>> = BufReader::new(Cursor::new(jre.into()));
         let mut archive = ZipArchive::new(reader)?;
@@ -249,7 +237,10 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
         // sanity check
         let java_path = jre_dir.join("bin").join("java.exe");
         if !java_path.exists() {
-            return Err(anyhow!("Failed to extract JRE"));
+            return Err(eyre!(
+                "Failed to extract JRE ({} does not exist)",
+                java_path.display()
+            ));
         }
     }
 
@@ -259,7 +250,7 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 }
 
 async fn write_settings(settings: &InstanceSettings, path: &Path) -> Result<()> {
-    fs::create_dir_all(path.parent().unwrap()).await?;
+    fs::create_dir_all(path.parent().expect("infallible")).await?;
     let mut file = fs::File::create(path).await?;
     file.write_all(toml::to_string(settings)?.as_bytes())
         .await?;
