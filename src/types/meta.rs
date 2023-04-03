@@ -100,3 +100,48 @@ impl InstanceSettings {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn read_write_settings() {
+        scopeguard::defer! {
+            std::fs::remove_file("settings.toml").unwrap();
+        }
+
+        let settings = InstanceSettings::new(8);
+        let path = PathBuf::from("settings.toml");
+        settings.save(&path).await.unwrap();
+        let settings = InstanceSettings::from_file(&path).await.unwrap();
+        assert_eq!(settings.java.version, 8);
+        assert_eq!(
+            settings.java.args,
+            DEFAULT_JVM_ARGS
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        );
+        assert_eq!(settings.server.jar, PathBuf::from("server.jar"));
+        assert_eq!(settings.server.args, vec!["--nogui".to_string()]);
+    }
+
+    #[tokio::test]
+    #[should_panic = "Error reading settings at fake.toml"]
+    async fn read_settings_nonexistent() {
+        let _settings = InstanceSettings::from_file("fake.toml").await.unwrap();
+    }
+
+    #[tokio::test]
+    #[should_panic = "TOML parse error"]
+    async fn read_settings_invalid() {
+        scopeguard::defer! {
+            std::fs::remove_file("invalid.toml").unwrap();
+        }
+
+        let path = PathBuf::from("invalid.toml");
+        fs::write(&path, "invalid").await.unwrap();
+        let _settings = InstanceSettings::from_file(&path).await.unwrap();
+    }
+}

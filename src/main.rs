@@ -13,7 +13,7 @@ use crate::utils::net::get_version_manifest;
 use clap::{
     arg, command, crate_version, error::ErrorKind, value_parser, ArgAction, ArgGroup, Command,
 };
-use color_eyre::eyre::{eyre, Result, WrapErr};
+use color_eyre::eyre::{eyre, Result};
 use itertools::Itertools;
 
 #[tokio::main]
