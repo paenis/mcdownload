@@ -1,8 +1,4 @@
-use std::{
-    env::current_exe,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{env::current_exe, path::PathBuf, time::Duration};
 
 use crate::{
     types::{
@@ -14,10 +10,7 @@ use crate::{
 
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::{fs, task::JoinSet};
-
-const DEFAULT_JVM_ARGS: &[&str] = &["-Xms4G", "-Xmx4G"];
 
 // ideally there is one public function for each subcommand
 
@@ -87,10 +80,9 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
             // write settings
             pb_server.set_message("Writing settings...");
-            let settings =
-                InstanceSettings::new(DEFAULT_JVM_ARGS.iter().map(|s| s.to_string()).collect());
+            let settings = InstanceSettings::new(jre_version);
 
-            write_settings(&settings, &instance_dir.join("settings.toml")).await?;
+            settings.save(&instance_dir.join("settings.toml")).await?;
 
             pb_server.finish_with_message("Done!");
             Ok::<(), eyre::Report>(())
@@ -243,22 +235,6 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     pb.finish_with_message("Done!");
 
     Ok(())
-}
-
-async fn write_settings(settings: &InstanceSettings, path: &Path) -> Result<()> {
-    fs::create_dir_all(path.parent().expect("infallible")).await?;
-    let mut file = fs::File::create(path).await?;
-    file.write_all(toml::to_string(settings)?.as_bytes())
-        .await?;
-
-    Ok(())
-}
-
-async fn read_settings(path: &Path) -> Result<InstanceSettings> {
-    let mut file = fs::File::open(path).await?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).await?;
-    Ok(toml::from_str(&contents)?)
 }
 
 #[cfg(test)]
