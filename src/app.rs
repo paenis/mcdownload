@@ -23,7 +23,6 @@ const DEFAULT_JVM_ARGS: &[&str] = &["-Xms4G", "-Xmx4G"];
 
 pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> {
     let mut install_threads = JoinSet::new();
-    let mut jre_threads = JoinSet::new();
     let bars = MultiProgress::new();
 
     let bar_style = ProgressStyle::with_template(
@@ -111,20 +110,18 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
         pb_jre.set_prefix(format!("JRE {} for {}", jre_version, version.id));
 
         // at the same time, spawn a thread to install the JRE
-        jre_threads.spawn(async move {
+        install_threads.spawn(async move {
             pb_jre.set_message("Installing JRE...");
-            install_jre(&jre_version, &pb_jre).await?;
+            install_jre(&jre_version, &pb_jre)
+                .await
+                .wrap_err(format!("Failed to install JRE {jre_version}"))?;
 
             Ok::<(), eyre::Report>(())
         });
     }
 
     while let Some(result) = install_threads.join_next().await {
-        result?.wrap_err("Failed to install version")?;
-    }
-
-    while let Some(result) = jre_threads.join_next().await {
-        result?.wrap_err("Failed to install JRE")?;
+        result?.wrap_err("Failed to install server or JRE")?;
     }
 
     Ok(())

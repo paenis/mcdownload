@@ -13,7 +13,7 @@ use crate::utils::net::get_version_manifest;
 use clap::{
     arg, command, crate_version, error::ErrorKind, value_parser, ArgAction, ArgGroup, Command,
 };
-use color_eyre::eyre::{eyre, Result};
+use color_eyre::eyre::{eyre, Result, WrapErr};
 use itertools::Itertools;
 
 #[tokio::main]
@@ -177,7 +177,11 @@ async fn main() -> Result<()> {
         if let Some(matches) = matches.get_many::<String>("version") {
             let (valid, invalid): (Vec<_>, Vec<_>) = matches
                 .into_iter()
-                .map(|v| v.parse::<VersionNumber>().expect("Failed to parse version"))
+                .map(|v| {
+                    v.parse::<VersionNumber>()
+                        .wrap_err(format!("{}", v))
+                        .unwrap()
+                })
                 .partition(|v| version_ids.contains(&&v));
 
             if valid.is_empty() {

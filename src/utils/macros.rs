@@ -50,13 +50,13 @@ macro_rules! defn_is_variant {
 macro_rules! parse_variants {
     ($enum_name:ident { $( $variant:ident as $ty:ty ),* $(,)? }) => {
         impl std::str::FromStr for $enum_name {
-            type Err = String;
+            type Err = color_eyre::eyre::Report;
 
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
+            fn from_str(s: &str) -> color_eyre::eyre::Result<Self, Self::Err> {
                 $( if let Ok(v) = s.parse::<$ty>() {
                     return Ok(Self::$variant(v));
                 } else )* {
-                    return Err(format!("Failed to parse input string: {}", s));
+                    return Err(color_eyre::eyre::eyre!("Failed to parse input string: {}", s));
                 }
             }
         }

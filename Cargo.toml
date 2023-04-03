@@ -30,6 +30,9 @@ zip = "0.6.4"
 flate2 = "1.0.25"
 tar = "0.4.38"
 
+[profile.dev.package.backtrace]
+opt-level = 3
+
 [features]
 vendored-openssl = ["openssl/vendored"]
 rustls = ["reqwest/rustls-tls"]
