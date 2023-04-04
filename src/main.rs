@@ -233,7 +233,6 @@ async fn main() -> Result<()> {
             .expect("infallible");
 
         app::run_version(version).await?;
-
     };
 
     Ok(())

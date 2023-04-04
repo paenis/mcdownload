@@ -270,7 +270,7 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
 
     // set JAVA_HOME
     let old_java_home = std::env::var("JAVA_HOME").unwrap_or("".to_string());
-    
+
     scopeguard::defer! {
         std::env::set_var("JAVA_HOME", old_java_home);
     }
@@ -279,11 +279,18 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
 
     // start the server
     let mut cmd = Command::new(&java_path);
-    
+
     cmd.env("JAVA_HOME", java_path.parent().unwrap().parent().unwrap());
-    cmd.env("PATH", format!("{}:{}", std::env::var("PATH").unwrap_or("".to_string()) , java_path.parent().unwrap().to_str().unwrap()));
+    cmd.env(
+        "PATH",
+        format!(
+            "{}:{}",
+            std::env::var("PATH").unwrap_or("".to_string()),
+            java_path.parent().unwrap().to_str().unwrap()
+        ),
+    );
     cmd.current_dir(instance_path);
-    
+
     cmd.args(settings.java.args);
     cmd.arg("-jar");
     cmd.arg(settings.server.jar);
