@@ -13,7 +13,7 @@ use crate::utils::net::get_version_manifest;
 use clap::{
     arg, command, crate_version, error::ErrorKind, value_parser, ArgAction, ArgGroup, Command,
 };
-use color_eyre::eyre::{eyre, Result};
+use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use itertools::Itertools;
 
 #[tokio::main]
@@ -85,7 +85,7 @@ async fn main() -> Result<()> {
     let manifest_thread = tokio::spawn(async move {
         let manifest = get_version_manifest().await?;
 
-        Ok::<_, color_eyre::eyre::Report>(manifest)
+        Ok::<_, eyre::Report>(manifest)
     });
 
     if let Some(matches) = matches.subcommand_matches("list") {
@@ -213,7 +213,9 @@ async fn main() -> Result<()> {
                 .filter(|v| valid.contains(&v.id))
                 .collect_vec();
 
-            install_versions(to_install_versions).await?;
+            install_versions(to_install_versions)
+                .await
+                .wrap_err("Error while installing multiple versions")?;
         } else {
             println!("Installing latest release version\n");
             let latest = versions
@@ -221,18 +223,20 @@ async fn main() -> Result<()> {
                 .find(|v| v.id == latest.release)
                 .ok_or_else(|| eyre!("No latest release version found"))?;
 
-            install_versions(vec![latest]).await?;
+            install_versions(vec![latest])
+                .await
+                .wrap_err("Error while installing latest version")?;
         }
     } else if let Some(matches) = matches.subcommand_matches("run") {
-        todo!("Run version");
-
         let version = matches
             .get_one::<String>("version")
             .expect("No version provided")
             .parse::<VersionNumber>()
             .expect("infallible");
 
-        app::run_version(version).await?;
+        app::run_version(version)
+            .await
+            .wrap_err("Error while running server")?;
     };
 
     Ok(())

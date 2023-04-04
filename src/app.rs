@@ -9,14 +9,10 @@ use crate::{
 };
 
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
+use dialoguer::Confirm;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
-use tokio::{
-    fs,
-    io::{AsyncBufReadExt, AsyncWriteExt},
-    process::Command,
-    task::JoinSet,
-};
+use tokio::{fs, process::Command, task::JoinSet};
 
 lazy_static! {
     static ref CURRENT_DIR: PathBuf = current_exe()
@@ -268,65 +264,63 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
 
     let java_path = get_java_path(jre_version);
 
-    // set JAVA_HOME
-    let old_java_home = std::env::var("JAVA_HOME").unwrap_or("".to_string());
-
-    scopeguard::defer! {
-        std::env::set_var("JAVA_HOME", old_java_home);
-    }
-
-    std::env::set_var("JAVA_HOME", java_path.parent().unwrap());
-
-    // start the server
     let mut cmd = Command::new(&java_path);
 
-    cmd.env("JAVA_HOME", java_path.parent().unwrap().parent().unwrap());
-    cmd.env(
-        "PATH",
-        format!(
-            "{}:{}",
-            std::env::var("PATH").unwrap_or("".to_string()),
-            java_path.parent().unwrap().to_str().unwrap()
-        ),
-    );
-    cmd.current_dir(instance_path);
+    cmd.current_dir(&instance_path);
+    cmd.kill_on_drop(true);
 
     cmd.args(settings.java.args);
     cmd.arg("-jar");
     cmd.arg(settings.server.jar);
     cmd.args(settings.server.args);
 
-    dbg!(&cmd);
-
     let mut child = cmd.spawn().wrap_err("Failed to start server")?;
-
-    // pass through stdin
-    let mut stdin = tokio::io::BufReader::new(tokio::io::stdin());
-
-    loop {
-        let mut line = String::new();
-        stdin.read_line(&mut line).await?;
-
-        child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| eyre!("Failed to get stdin"))?
-            .write_all(line.as_bytes())
-            .await?;
-
-        if child.try_wait()?.is_some() {
-            break;
-        }
-
-        if line.trim() == "stop" {
-            break;
-        }
-    }
-
-    // wait for the server to stop
-    let status = child.wait().await?;
+    let status = child.wait().await.wrap_err("Failed to wait for server")?; // says it closes the stdin but it doesn't (i guess)
 
     if !status.success() {
+        let upload = Confirm::new()
+            .with_prompt("Server exited with an error. Would you like to upload the crash report?")
+            .default(false)
+            .interact()?;
+
+        if upload {
+            let crash_reports = instance_path.join("crash-reports");
+
+            let latest = std::fs::read_dir(crash_reports)
+                .wrap_err("Failed to read crash reports directory")?
+                .filter_map(|entry| entry.ok())
+                .max_by(|a, b| {
+                    let a = a.metadata().unwrap().modified().unwrap();
+                    let b = b.metadata().unwrap().modified().unwrap();
+
+                    a.cmp(&b)
+                })
+                .ok_or_else(|| eyre!("No crash reports found"))?;
+
+            let content =
+                std::fs::read_to_string(latest.path()).wrap_err("Failed to read crash report")?;
+
+            // upload to mclo.gs
+            let client = reqwest::Client::new();
+            let response = client
+                .post("https://api.mclo.gs/1/log")
+                .form(&[("content", content)])
+                .send()
+                .await?;
+
+            // parse json response
+            let response: serde_json::Value = response.json().await?;
+
+            if response["success"].as_bool().unwrap() {
+                println!("Crash report uploaded to {}", response["url"]);
+            } else {
+                return Err(eyre!(
+                    "Failed to upload crash report: {}",
+                    response["error"]
+                ));
+            }
+        }
+
         return Err(eyre!("Server exited with status {status}"));
     }
 
