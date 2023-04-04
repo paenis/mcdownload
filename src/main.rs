@@ -89,9 +89,19 @@ async fn main() -> Result<()> {
     });
 
     if let Some(matches) = matches.subcommand_matches("list") {
-        if term_size::dimensions().is_none() {
-            return Ok(());
-        } // no terminal output, so don't bother
+        let term_width = match terminal_size::terminal_size() {
+            Some((terminal_size::Width(w), _)) => {
+                if w < 20 {
+                    cmd.error(ErrorKind::Io, "Terminal width is too small")
+                        .exit();
+                }
+                w as usize
+            }
+            _ => {
+                cmd.error(ErrorKind::Io, "Unable to get terminal width")
+                    .exit();
+            }
+        };
 
         let versions = manifest_thread.await??.versions;
         let versions_filtered: Vec<&GameVersion> = if matches.get_flag("release") {
@@ -119,12 +129,10 @@ async fn main() -> Result<()> {
             .expect("No versions found")
             + 1;
 
-        for chunk in versions_filtered
-            .chunks(term_size::dimensions().expect("checked above").0 / (max_len + 1))
-        {
+        for chunk in versions_filtered.chunks(term_width / (max_len + 1)) {
             let row = chunk
                 .iter()
-                .map(|v| format!("{:width$}", v.id.to_string(), width = max_len))
+                .map(|v| format!("{:max_len$}", v.id.to_string()))
                 .join(" ");
             println!("{}", row.trim());
         }
