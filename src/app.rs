@@ -316,16 +316,19 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
             let response: serde_json::Value = response.json().await?;
 
             if response["success"].as_bool().unwrap() {
-                println!("Crash report uploaded to {}", response["url"]);
+                println!(
+                    "Crash report uploaded to {}",
+                    response["url"].as_str().unwrap()
+                );
             } else {
                 return Err(eyre!(
                     "Failed to upload crash report: {}",
-                    response["error"]
+                    response["error"].as_str().unwrap()
                 ));
             }
         }
 
-        return Err(eyre!("Server exited with status {status}"));
+        return Err(eyre!("Server exited with {status}"));
     }
 
     Ok(())
