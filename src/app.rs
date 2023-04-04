@@ -247,6 +247,10 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
     let instance_path = INSTANCE_BASE_DIR.join(id.to_string());
 
+    if !instance_path.exists() {
+        return Err(eyre!("Version {} is not installed", id));
+    }
+
     let settings = InstanceSettings::from_file(instance_path.join("settings.toml")).await?;
 
     // check if the JRE is installed and install it if not
