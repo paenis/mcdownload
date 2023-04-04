@@ -6,7 +6,6 @@ use tokio::{
     fs,
     io::{AsyncReadExt, AsyncWriteExt},
 };
-use toml;
 
 const DEFAULT_JVM_ARGS: &[&str] = &["-Xms4G", "-Xmx4G"];
 
@@ -104,15 +103,18 @@ impl InstanceSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::distributions::{Alphanumeric, DistString};
 
     #[tokio::test]
     async fn read_write_settings() {
+        let suf: String = Alphanumeric.sample_string(&mut rand::thread_rng(), 5);
+        let path = PathBuf::from(format!("settings-{}.toml", suf));
+
         scopeguard::defer! {
-            std::fs::remove_file("settings.toml").unwrap();
+            std::fs::remove_file(&path).unwrap();
         }
 
         let settings = InstanceSettings::new(8);
-        let path = PathBuf::from("settings.toml");
         settings.save(&path).await.unwrap();
         let settings = InstanceSettings::from_file(&path).await.unwrap();
         assert_eq!(settings.java.version, 8);
@@ -128,19 +130,24 @@ mod tests {
     }
 
     #[tokio::test]
-    #[should_panic = "Error reading settings at fake.toml"]
+    #[should_panic = "Error reading settings at settings-"]
     async fn read_settings_nonexistent() {
-        let _settings = InstanceSettings::from_file("fake.toml").await.unwrap();
+        let suf: String = Alphanumeric.sample_string(&mut rand::thread_rng(), 5);
+        let path = PathBuf::from(format!("settings-{}.toml", suf));
+
+        let _settings = InstanceSettings::from_file(&path).await.unwrap();
     }
 
     #[tokio::test]
     #[should_panic = "TOML parse error"]
     async fn read_settings_invalid() {
+        let suf: String = Alphanumeric.sample_string(&mut rand::thread_rng(), 5);
+        let path = PathBuf::from(format!("settings-{}.toml", suf));
+
         scopeguard::defer! {
-            std::fs::remove_file("invalid.toml").unwrap();
+            std::fs::remove_file(&path).unwrap();
         }
 
-        let path = PathBuf::from("invalid.toml");
         fs::write(&path, "invalid").await.unwrap();
         let _settings = InstanceSettings::from_file(&path).await.unwrap();
     }
