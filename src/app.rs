@@ -3,14 +3,35 @@ use std::{env::current_exe, path::PathBuf, time::Duration};
 use crate::{
     types::{
         meta::InstanceSettings,
-        version::{GameVersion, VersionMetadata},
+        version::{GameVersion, VersionMetadata, VersionNumber},
     },
     utils::net::{download_jre, get_version_metadata},
 };
 
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use tokio::{fs, task::JoinSet};
+use lazy_static::lazy_static;
+use tokio::{
+    fs,
+    io::{AsyncBufReadExt, AsyncWriteExt},
+    process::Command,
+    task::JoinSet,
+};
+
+lazy_static! {
+    static ref CURRENT_DIR: PathBuf = current_exe()
+        .unwrap()
+        .parent()
+        .expect("infallible")
+        .to_path_buf();
+    static ref INSTANCE_BASE_DIR: PathBuf = CURRENT_DIR.join(".versions");
+    static ref JRE_BASE_DIR: PathBuf = CURRENT_DIR.join(".jre");
+    static ref PB_STYLE: ProgressStyle = ProgressStyle::with_template(
+        "{prefix:.bold.blue.bright} {spinner:.green.bright} {wide_msg}",
+    )
+    .unwrap()
+    .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏-");
+}
 
 // ideally there is one public function for each subcommand
 
@@ -18,16 +39,11 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
     let mut install_threads = JoinSet::new();
     let bars = MultiProgress::new();
 
-    let bar_style = ProgressStyle::with_template(
-        "{prefix:.bold.blue.bright} {spinner:.green.bright} {wide_msg}",
-    )?
-    .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏-");
-
     let mut jres_installed: Vec<u8> = Vec::new();
 
     for version in versions {
         let pb_server = bars.add(ProgressBar::new_spinner());
-        pb_server.set_style(bar_style.clone());
+        pb_server.set_style(PB_STYLE.clone());
         pb_server.set_prefix(format!("{}", version.id));
         pb_server.enable_steady_tick(Duration::from_millis(100));
 
@@ -96,7 +112,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
         }
 
         let pb_jre = bars.add(ProgressBar::new_spinner());
-        pb_jre.set_style(bar_style.clone());
+        pb_jre.set_style(PB_STYLE.clone());
         pb_jre.set_prefix(format!("JRE {} for {}", jre_version, version.id));
         pb_jre.enable_steady_tick(Duration::from_millis(100));
 
@@ -124,12 +140,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
 // major_version is 8, 16, 17 ONLY
 async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
-    let jre_dir: PathBuf = current_exe()
-        .wrap_err("Failed to get current executable path")?
-        .parent()
-        .expect("infallible")
-        .join(".jre")
-        .join(major_version.to_string());
+    let jre_dir = JRE_BASE_DIR.join(major_version.to_string());
 
     if jre_dir.exists() {
         pb.finish_with_message("Cancelled (already installed)");
@@ -237,6 +248,97 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     Ok(())
 }
 
+pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
+    let instance_path = INSTANCE_BASE_DIR.join(id.to_string());
+
+    let settings = InstanceSettings::from_file(instance_path.join("settings.toml")).await?;
+
+    // check if the JRE is installed and install it if not
+    let jre_version = settings.java.version;
+    let jre_dir = JRE_BASE_DIR.join(jre_version.to_string());
+
+    if !jre_dir.exists() {
+        let pb = ProgressBar::new_spinner();
+        pb.set_style(PB_STYLE.clone());
+        pb.set_prefix(format!("JRE {} for {}", jre_version, id));
+        pb.enable_steady_tick(Duration::from_millis(100));
+
+        install_jre(&jre_version, &pb).await?;
+    }
+
+    let java_path = get_java_path(jre_version);
+
+    // set JAVA_HOME
+    let old_java_home = std::env::var("JAVA_HOME").unwrap_or("".to_string());
+    
+    scopeguard::defer! {
+        std::env::set_var("JAVA_HOME", old_java_home);
+    }
+
+    std::env::set_var("JAVA_HOME", java_path.parent().unwrap());
+
+    // start the server
+    let mut cmd = Command::new(&java_path);
+    
+    cmd.env("JAVA_HOME", java_path.parent().unwrap().parent().unwrap());
+    cmd.env("PATH", format!("{}:{}", std::env::var("PATH").unwrap_or("".to_string()) , java_path.parent().unwrap().to_str().unwrap()));
+    cmd.current_dir(instance_path);
+    
+    cmd.args(settings.java.args);
+    cmd.arg("-jar");
+    cmd.arg(settings.server.jar);
+    cmd.args(settings.server.args);
+
+    dbg!(&cmd);
+
+    let mut child = cmd.spawn().wrap_err("Failed to start server")?;
+
+    // pass through stdin
+    let mut stdin = tokio::io::BufReader::new(tokio::io::stdin());
+
+    loop {
+        let mut line = String::new();
+        stdin.read_line(&mut line).await?;
+
+        child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| eyre!("Failed to get stdin"))?
+            .write_all(line.as_bytes())
+            .await?;
+
+        if child.try_wait()?.is_some() {
+            break;
+        }
+
+        if line.trim() == "stop" {
+            break;
+        }
+    }
+
+    // wait for the server to stop
+    let status = child.wait().await?;
+
+    if !status.success() {
+        return Err(eyre!("Server exited with status {status}"));
+    }
+
+    Ok(())
+}
+
+fn get_java_path(version: u8) -> PathBuf {
+    let mut path = JRE_BASE_DIR.join(version.to_string());
+    path.push("bin");
+
+    match std::env::consts::OS {
+        "windows" => path.push("java.exe"),
+        "linux" => path.push("java"),
+        _ => panic!("Unsupported OS"),
+    }
+
+    path
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,11 +347,7 @@ mod tests {
     async fn test_install_jre() {
         // remove the jre directory if the test panics
         scopeguard::defer! {
-            let path = current_exe()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .join(PathBuf::from(".jre/8"));
+            let path = JRE_BASE_DIR.join("8");
 
             if path.exists() {
                 std::fs::remove_dir_all(path).unwrap();
@@ -258,11 +356,7 @@ mod tests {
 
         install_jre(&8, &ProgressBar::hidden()).await.unwrap();
 
-        let path = current_exe()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join(PathBuf::from(".jre/8/bin"));
+        let path = JRE_BASE_DIR.join("8/bin");
 
         match std::env::consts::OS {
             "windows" => assert!(path.join("java.exe").exists()),

@@ -224,8 +224,16 @@ async fn main() -> Result<()> {
             install_versions(vec![latest]).await?;
         }
     } else if let Some(matches) = matches.subcommand_matches("run") {
-        // println!("{:?}", versions);
         todo!("Run version");
+
+        let version = matches
+            .get_one::<String>("version")
+            .expect("No version provided")
+            .parse::<VersionNumber>()
+            .expect("infallible");
+
+        app::run_version(version).await?;
+
     };
 
     Ok(())
