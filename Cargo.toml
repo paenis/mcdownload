@@ -9,7 +9,7 @@ chrono = { version = "0.4.24", features = ["serde"] }
 clap = { version = "4.1.11", features = ["wrap_help", "cargo"] }
 color-eyre = { version = "0.6.2", default-features = false }
 derive_more = { version = "0.99.17", default-features = false, features = ["constructor", "display"] }
-dialoguer = "0.10.3"
+dialoguer = { version = "0.10.3", default-features = false }
 indicatif = "0.17.3"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
@@ -17,16 +17,15 @@ openssl = { version = "0.10.37", optional = true }
 paste = "1.0.12"
 regex = "1.7.1"
 reqwest = { version = "0.11.14", features = ["json"] }
-scopeguard = { version = "1.1.0", default-features = false }
 serde = { version = "1.0.157", features = ["derive"] }
 serde_json = "1.0.94"
 serde_with = "2.3.1"
 terminal_size = "0.2.6"
-tokio = { version = "1.26.0", features = ["full"] }
+tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros", "fs", "process"] }
 toml = { version = "0.7.3", features = ["preserve_order"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-zip = "0.6.4"
+zip = { version = "0.6.4", default-features = false, features = ["deflate"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 flate2 = "1.0.25"
@@ -41,3 +40,4 @@ rustls = ["reqwest/rustls-tls"]
 
 [dev-dependencies]
 rand = "0.8.5"
+scopeguard = { version = "1.1.0", default-features = false }
