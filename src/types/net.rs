@@ -1,6 +1,5 @@
-use std::path::Path;
+use std::{path::Path, time::SystemTime};
 
-use chrono::{DateTime, Utc};
 use color_eyre::eyre::Result;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
@@ -9,12 +8,12 @@ use tokio::fs;
 #[derive(Serialize, Deserialize, Constructor)]
 pub(crate) struct CachedResponse<T> {
     pub data: T,
-    pub expires: DateTime<Utc>,
+    pub expires: SystemTime,
 }
 
 impl<T> CachedResponse<T> {
     pub fn is_expired(&self) -> bool {
-        Utc::now() > self.expires
+        SystemTime::now() > self.expires
     }
 
     // generics are crazy fr

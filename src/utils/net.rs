@@ -1,7 +1,9 @@
-use std::env::current_exe;
+use std::{
+    env::current_exe,
+    time::{Duration, SystemTime},
+};
 
 use bytes::Bytes;
-use chrono::{Duration, Utc};
 use color_eyre::eyre::{eyre, Result};
 use reqwest::StatusCode;
 
@@ -14,7 +16,7 @@ const PISTON_API_URL: &str = "https://piston-meta.mojang.com/";
 const FABRIC_API_URL: &str = "https://meta.fabricmc.net/";
 
 const CACHE_PATH: &str = ".meta";
-const CACHE_EXPIRATION_TIME: i64 = 60 * 10; // 10 minutes
+const CACHE_EXPIRATION_TIME: u64 = 60 * 10; // 10 minutes
 
 pub(crate) fn api_path(path: &str) -> String {
     format!("{}{}", PISTON_API_URL, path)
@@ -46,7 +48,7 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
     // save to disk
     let cached_response = CachedResponse::new(
         &response,
-        Utc::now() + Duration::seconds(CACHE_EXPIRATION_TIME),
+        SystemTime::now() + Duration::from_secs(CACHE_EXPIRATION_TIME),
     );
     cached_response.save(&cache_file).await?;
 
@@ -72,7 +74,7 @@ pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<Versio
 
     let cached_response = CachedResponse::new(
         &response,
-        Utc::now() + Duration::seconds(CACHE_EXPIRATION_TIME),
+        SystemTime::now() + Duration::from_secs(CACHE_EXPIRATION_TIME),
     );
     cached_response.save(&cache_file).await?;
 
