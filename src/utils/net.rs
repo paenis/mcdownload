@@ -4,7 +4,6 @@ use bytes::Bytes;
 use chrono::{Duration, Utc};
 use color_eyre::eyre::{eyre, Result};
 use reqwest::StatusCode;
-use tokio::fs;
 
 use crate::types::{
     net::CachedResponse,
@@ -32,10 +31,6 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
         .expect("infallible")
         .join(CACHE_PATH)
         .join("manifest.json");
-
-    if !cache_file.exists() {
-        fs::create_dir_all(cache_file.parent().expect("infallible")).await?;
-    }
 
     // check if file exists and is not expired
     // if so, return cached data
