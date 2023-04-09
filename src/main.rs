@@ -180,7 +180,7 @@ async fn main() -> Result<()> {
             let (valid, invalid): (Vec<_>, Vec<_>) = matches
                 .into_iter()
                 .map(|v| v.parse::<VersionNumber>().expect("infallible"))
-                .partition(|v| version_ids.contains(&&v));
+                .partition(|v| version_ids.contains(&v));
 
             if valid.is_empty() {
                 cmd.error(

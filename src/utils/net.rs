@@ -39,11 +39,9 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
 
     // check if file exists and is not expired
     // if so, return cached data
-    if let Ok(data) = fs::read_to_string(&cache_file).await {
-        if let Ok(cached) = serde_json::from_str::<CachedResponse<GameVersionList>>(&data) {
-            if !cached.is_expired() {
-                return Ok(cached.data);
-            }
+    if let Ok(cached) = CachedResponse::<GameVersionList>::from_file(&cache_file).await {
+        if !cached.is_expired() {
+            return Ok(cached.data);
         }
     }
 
@@ -55,8 +53,7 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
         &response,
         Utc::now() + Duration::seconds(CACHE_EXPIRATION_TIME),
     );
-    let data = serde_json::to_string(&cached_response)?;
-    fs::write(cache_file, data).await?;
+    cached_response.save(&cache_file).await?;
 
     Ok(response)
 }
@@ -70,15 +67,9 @@ pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<Versio
         .join(CACHE_PATH)
         .join(format!("{}.json", version.id));
 
-    if !cache_file.exists() {
-        fs::create_dir_all(cache_file.parent().expect("infallible")).await?;
-    }
-
-    if let Ok(data) = fs::read_to_string(&cache_file).await {
-        if let Ok(cached) = serde_json::from_str::<CachedResponse<VersionMetadata>>(&data) {
-            if !cached.is_expired() {
-                return Ok(cached.data);
-            }
+    if let Ok(cached) = CachedResponse::<VersionMetadata>::from_file(&cache_file).await {
+        if !cached.is_expired() {
+            return Ok(cached.data);
         }
     }
 
@@ -88,8 +79,7 @@ pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<Versio
         &response,
         Utc::now() + Duration::seconds(CACHE_EXPIRATION_TIME),
     );
-    let data = serde_json::to_string(&cached_response)?;
-    fs::write(cache_file, data).await?;
+    cached_response.save(&cache_file).await?;
 
     Ok(response)
 }

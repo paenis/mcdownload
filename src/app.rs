@@ -59,7 +59,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
                 .parent()
                 .expect("infallible")
                 .join(".versions")
-                .join(&version_meta.id.to_string());
+                .join(version_meta.id.to_string());
 
             if instance_dir.exists() {
                 pb_server.finish_with_message("Cancelled (already installed)");

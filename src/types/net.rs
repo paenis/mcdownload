@@ -1,6 +1,10 @@
+use std::path::Path;
+
 use chrono::{DateTime, Utc};
+use color_eyre::eyre::Result;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
+use tokio::fs;
 
 #[derive(Serialize, Deserialize, Constructor)]
 pub(crate) struct CachedResponse<T> {
@@ -11,5 +15,25 @@ pub(crate) struct CachedResponse<T> {
 impl<T> CachedResponse<T> {
     pub fn is_expired(&self) -> bool {
         Utc::now() > self.expires
+    }
+
+    // generics are crazy fr
+    pub async fn from_file<P: AsRef<Path>>(path: P) -> Result<Self>
+    where
+        Self: for<'de> Deserialize<'de>,
+    {
+        let data = fs::read_to_string(path).await?;
+        let cached: CachedResponse<T> = serde_json::from_str(&data)?;
+        Ok(cached)
+    }
+
+    pub async fn save<P: AsRef<Path>>(&self, path: P) -> Result<()>
+    where
+        Self: Serialize,
+    {
+        let data = serde_json::to_string(&self)?;
+        fs::create_dir_all(path.as_ref().parent().expect("infallible")).await?;
+        fs::write(path, data).await?;
+        Ok(())
     }
 }
