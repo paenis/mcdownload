@@ -30,7 +30,7 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
         .parent()
         .expect("infallible")
         .join(CACHE_PATH)
-        .join("manifest.json");
+        .join("manifest.mpk");
 
     // check if file exists and is not expired
     // if so, return cached data
@@ -60,7 +60,7 @@ pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<Versio
         .parent()
         .expect("infallible")
         .join(CACHE_PATH)
-        .join(format!("{}.json", version.id));
+        .join(format!("{}.mpk", version.id));
 
     if let Ok(cached) = CachedResponse::<VersionMetadata>::from_file(&cache_file).await {
         if !cached.is_expired() {

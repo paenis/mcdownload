@@ -22,8 +22,8 @@ impl<T> CachedResponse<T> {
     where
         Self: for<'de> Deserialize<'de>,
     {
-        let data = fs::read_to_string(path).await?;
-        let cached: CachedResponse<T> = serde_json::from_str(&data)?;
+        let data = fs::read(path).await?;
+        let cached: CachedResponse<T> = rmp_serde::from_slice(&data)?;
         Ok(cached)
     }
 
@@ -31,7 +31,7 @@ impl<T> CachedResponse<T> {
     where
         Self: Serialize,
     {
-        let data = serde_json::to_string(&self)?;
+        let data = rmp_serde::to_vec(self)?;
         fs::create_dir_all(path.as_ref().parent().expect("infallible")).await?;
         fs::write(path, data).await?;
         Ok(())
