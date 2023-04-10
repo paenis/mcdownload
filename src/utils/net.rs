@@ -1,17 +1,27 @@
 use std::env::current_exe;
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 use bytes::Bytes;
 use color_eyre::eyre::{eyre, Result};
+use lazy_static::lazy_static;
 use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
 
 use crate::types::net::CachedResponse;
 use crate::types::version::{GameVersion, GameVersionList, VersionMetadata};
 
+lazy_static! {
+    static ref CACHE_BASE_DIR: PathBuf = current_exe()
+        .unwrap()
+        .parent()
+        .expect("infallible")
+        .join(".meta");
+}
+
 const PISTON_API_URL: &str = "https://piston-meta.mojang.com/";
 const FABRIC_API_URL: &str = "https://meta.fabricmc.net/";
 
-const CACHE_PATH: &str = ".meta";
 const CACHE_EXPIRATION_TIME: u64 = 60 * 10; // 10 minutes
 
 #[inline]
@@ -25,50 +35,26 @@ fn fabric_api_path(path: &str) -> String {
 }
 
 pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
-    let cache_file = current_exe()?
-        .parent()
-        .expect("infallible")
-        .join(CACHE_PATH)
-        .join("manifest.mpk");
+    let cache_file = CACHE_BASE_DIR.join("manifest.mpk");
 
-    // check if file exists and is not expired
-    // if so, return cached data
-    if let Ok(cached) = CachedResponse::<GameVersionList>::from_file(&cache_file).await {
-        if !cached.is_expired() {
-            return Ok(cached.data);
-        }
-    }
-
-    // file doesn't exist or is expired, get fresh data
-    let response: GameVersionList = reqwest::get(api_path("mc/game/version_manifest.json"))
-        .await?
-        .json()
-        .await?;
-
-    // save to disk
-    let cached_response = CachedResponse::new(
-        &response,
-        SystemTime::now() + Duration::from_secs(CACHE_EXPIRATION_TIME),
-    );
-    cached_response.save(&cache_file).await?;
-
-    Ok(response)
+    get_maybe_cached(&api_path("mc/game/version_manifest.json"), &cache_file).await
 }
 
 pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<VersionMetadata> {
-    let cache_file = current_exe()?
-        .parent()
-        .expect("infallible")
-        .join(CACHE_PATH)
-        .join(format!("{}.mpk", version.id));
+    let cache_file = CACHE_BASE_DIR.join(format!("{}.mpk", version.id));
 
-    if let Ok(cached) = CachedResponse::<VersionMetadata>::from_file(&cache_file).await {
+    get_maybe_cached(&version.url, &cache_file).await
+}
+
+pub(crate) async fn get_maybe_cached<T>(url: &str, cache_file: &PathBuf) -> Result<T>
+where T: Serialize + for<'de> Deserialize<'de> {
+    if let Ok(cached) = CachedResponse::<T>::from_file(&cache_file).await {
         if !cached.is_expired() {
             return Ok(cached.data);
         }
     }
 
-    let response: VersionMetadata = reqwest::get(version.url.clone()).await?.json().await?;
+    let response: T = reqwest::get(url).await?.json().await?;
 
     let cached_response = CachedResponse::new(
         &response,
