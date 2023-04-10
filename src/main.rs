@@ -6,7 +6,6 @@ pub(crate) mod app;
 pub(crate) mod types;
 pub(crate) mod utils;
 
-use crate::app::install_versions;
 use crate::types::version::{GameVersion, VersionNumber};
 use crate::utils::net::get_version_manifest;
 
@@ -84,7 +83,6 @@ async fn main() -> Result<()> {
     // shared manifest between subcommands
     let manifest_thread = tokio::spawn(async move {
         let manifest = get_version_manifest().await?;
-
         Ok::<_, eyre::Report>(manifest)
     });
 
@@ -142,12 +140,10 @@ async fn main() -> Result<()> {
         let version_ids = versions.iter().map(|v| &v.id).collect_vec();
 
         let version = matches
-            .get_one::<String>("version")
-            .expect("No version provided")
-            .parse::<VersionNumber>()
-            .expect("infallible");
+            .get_one::<VersionNumber>("version")
+            .expect("No version provided");
 
-        if !version_ids.contains(&&version) {
+        if !version_ids.contains(&version) {
             cmd.error(
                 ErrorKind::ValueValidation,
                 format!("Invalid version: {}", version),
@@ -157,7 +153,7 @@ async fn main() -> Result<()> {
 
         let version = versions
             .iter()
-            .find(|v| v.id == version)
+            .find(|v| v.id == *version)
             .expect("infallible"); // checked above
 
         let time_format = "%-d %B %Y at %-I:%M:%S%P UTC";
@@ -213,7 +209,7 @@ async fn main() -> Result<()> {
                 .filter(|v| valid.contains(&v.id))
                 .collect_vec();
 
-            install_versions(to_install_versions)
+            app::install_versions(to_install_versions)
                 .await
                 .wrap_err("Error while installing multiple versions")?;
         } else {
@@ -223,18 +219,16 @@ async fn main() -> Result<()> {
                 .find(|v| v.id == latest.release)
                 .ok_or_else(|| eyre!("No latest release version found"))?;
 
-            install_versions(vec![latest])
+            app::install_versions(vec![latest])
                 .await
                 .wrap_err("Error while installing latest version")?;
         }
     } else if let Some(matches) = matches.subcommand_matches("run") {
         let version = matches
-            .get_one::<String>("version")
-            .expect("No version provided")
-            .parse::<VersionNumber>()
-            .expect("infallible");
+            .get_one::<VersionNumber>("version")
+            .expect("No version provided");
 
-        app::run_version(version)
+        app::run_version(version.clone())
             .await
             .wrap_err("Error while running server")?;
     };
