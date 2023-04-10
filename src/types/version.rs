@@ -1,6 +1,7 @@
-use std::{cmp::Ordering, collections::HashMap, fmt::Display, str::FromStr};
-
-use crate::utils::macros::{defn_is_variant, parse_variants};
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::fmt::Display;
+use std::str::FromStr;
 
 use chrono::{DateTime, FixedOffset};
 use derive_more::{Constructor, Display as MoreDisplay};
@@ -8,6 +9,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
+
+use crate::utils::macros::{defn_is_variant, parse_variants};
 
 /// Version format for release versions
 /// in the form of `X.Y.Z`

@@ -1,4 +1,5 @@
-use std::{path::Path, time::SystemTime};
+use std::path::Path;
+use std::time::SystemTime;
 
 use color_eyre::eyre::Result;
 use derive_more::Constructor;
@@ -18,18 +19,14 @@ impl<T> CachedResponse<T> {
 
     // generics are crazy fr
     pub async fn from_file<P: AsRef<Path>>(path: P) -> Result<Self>
-    where
-        Self: for<'de> Deserialize<'de>,
-    {
+    where Self: for<'de> Deserialize<'de> {
         let data = fs::read(path).await?;
         let cached: CachedResponse<T> = rmp_serde::from_slice(&data)?;
         Ok(cached)
     }
 
     pub async fn save<P: AsRef<Path>>(&self, path: P) -> Result<()>
-    where
-        Self: Serialize,
-    {
+    where Self: Serialize {
         let data = rmp_serde::to_vec(self)?;
         fs::create_dir_all(path.as_ref().parent().expect("infallible")).await?;
         fs::write(path, data).await?;

@@ -1,16 +1,12 @@
-use std::{
-    env::current_exe,
-    time::{Duration, SystemTime},
-};
+use std::env::current_exe;
+use std::time::{Duration, SystemTime};
 
 use bytes::Bytes;
 use color_eyre::eyre::{eyre, Result};
 use reqwest::StatusCode;
 
-use crate::types::{
-    net::CachedResponse,
-    version::{GameVersion, GameVersionList, VersionMetadata},
-};
+use crate::types::net::CachedResponse;
+use crate::types::version::{GameVersion, GameVersionList, VersionMetadata};
 
 const PISTON_API_URL: &str = "https://piston-meta.mojang.com/";
 const FABRIC_API_URL: &str = "https://meta.fabricmc.net/";
@@ -18,16 +14,17 @@ const FABRIC_API_URL: &str = "https://meta.fabricmc.net/";
 const CACHE_PATH: &str = ".meta";
 const CACHE_EXPIRATION_TIME: u64 = 60 * 10; // 10 minutes
 
-pub(crate) fn api_path(path: &str) -> String {
+#[inline]
+fn api_path(path: &str) -> String {
     format!("{}{}", PISTON_API_URL, path)
 }
 
-pub(crate) fn fabric_api_path(path: &str) -> String {
+#[inline]
+fn fabric_api_path(path: &str) -> String {
     format!("{}{}", FABRIC_API_URL, path)
 }
 
 pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
-    let version_manifest_url = api_path("mc/game/version_manifest.json");
     let cache_file = current_exe()?
         .parent()
         .expect("infallible")
@@ -43,7 +40,10 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
     }
 
     // file doesn't exist or is expired, get fresh data
-    let response: GameVersionList = reqwest::get(version_manifest_url).await?.json().await?;
+    let response: GameVersionList = reqwest::get(api_path("mc/game/version_manifest.json"))
+        .await?
+        .json()
+        .await?;
 
     // save to disk
     let cached_response = CachedResponse::new(
@@ -56,8 +56,6 @@ pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
 }
 
 pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<VersionMetadata> {
-    let meta_url = version.url.clone();
-
     let cache_file = current_exe()?
         .parent()
         .expect("infallible")
@@ -70,7 +68,7 @@ pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<Versio
         }
     }
 
-    let response: VersionMetadata = reqwest::get(meta_url).await?.json().await?;
+    let response: VersionMetadata = reqwest::get(version.url.clone()).await?.json().await?;
 
     let cached_response = CachedResponse::new(
         &response,

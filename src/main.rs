@@ -6,14 +6,13 @@ pub(crate) mod app;
 pub(crate) mod types;
 pub(crate) mod utils;
 
-use crate::types::version::{GameVersion, VersionNumber};
-use crate::utils::net::get_version_manifest;
-
-use clap::{
-    arg, command, crate_version, error::ErrorKind, value_parser, ArgAction, ArgGroup, Command,
-};
+use clap::error::ErrorKind;
+use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use itertools::Itertools;
+
+use crate::types::version::{GameVersion, VersionNumber};
+use crate::utils::net::get_version_manifest;
 
 #[tokio::main]
 async fn main() -> Result<()> {

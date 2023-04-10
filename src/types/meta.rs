@@ -2,10 +2,8 @@ use std::path::{Path, PathBuf};
 
 use color_eyre::eyre::{Result, WrapErr};
 use serde::{Deserialize, Serialize};
-use tokio::{
-    fs,
-    io::{AsyncReadExt, AsyncWriteExt},
-};
+use tokio::fs;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 const DEFAULT_JVM_ARGS: &[&str] = &["-Xms4G", "-Xmx4G"];
 
@@ -102,8 +100,9 @@ impl InstanceSettings {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::distributions::{Alphanumeric, DistString};
+
+    use super::*;
 
     #[tokio::test]
     async fn read_write_settings() {

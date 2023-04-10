@@ -63,8 +63,7 @@ macro_rules! parse_variants {
     };
 }
 
-pub(crate) use defn_is_variant;
-pub(crate) use parse_variants;
+pub(crate) use {defn_is_variant, parse_variants};
 
 #[cfg(test)]
 mod tests {

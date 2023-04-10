@@ -1,18 +1,18 @@
-use std::{env::current_exe, path::PathBuf, time::Duration};
-
-use crate::{
-    types::{
-        meta::InstanceSettings,
-        version::{GameVersion, VersionMetadata, VersionNumber},
-    },
-    utils::net::{download_jre, get_version_metadata},
-};
+use std::env::current_exe;
+use std::path::PathBuf;
+use std::time::Duration;
 
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use dialoguer::Confirm;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
-use tokio::{fs, process::Command, task::JoinSet};
+use tokio::fs;
+use tokio::process::Command;
+use tokio::task::JoinSet;
+
+use crate::types::meta::InstanceSettings;
+use crate::types::version::{GameVersion, VersionMetadata, VersionNumber};
+use crate::utils::net::{download_jre, get_version_metadata};
 
 lazy_static! {
     static ref CURRENT_DIR: PathBuf = current_exe()
