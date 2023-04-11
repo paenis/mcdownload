@@ -53,3 +53,11 @@ debug = 1
 [profile.release-lto]
 inherits = "release"
 lto = true
+
+[profile.release-nodebug]
+inherits = "release"
+debug = 0
+
+[profile.release-nodebug-lto]
+inherits = "release-nodebug"
+lto = true
