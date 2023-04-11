@@ -1,11 +1,37 @@
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
 use color_eyre::eyre::{Result, WrapErr};
+use itertools::Itertools;
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-const DEFAULT_JVM_ARGS: &[&str] = &["-Xms4G", "-Xmx4G"];
+lazy_static! {
+    static ref DEFAULT_JVM_ARGS: Vec<String> = vec!["-Xms4G".to_string(), "-Xmx4G".to_string()];
+    static ref DEFAULT_SERVER_ARGS: Vec<String> = vec!["--nogui".to_string()];
+}
+
+trait AsArgs {
+    fn as_args(&self) -> Vec<String>;
+
+    fn as_args_string(&self) -> String {
+        // preserve quotes
+        self.as_args()
+            .iter()
+            .map(|s| shell_escape::escape(Cow::Borrowed(s)))
+            .join(" ")
+    }
+}
+
+impl<T> AsArgs for T
+where T: Clone + Into<Vec<String>>
+{
+    fn as_args(&self) -> Vec<String> {
+        self.clone().into()
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct InstanceJavaSettings {
@@ -22,7 +48,7 @@ impl InstanceJavaSettings {
     pub fn new(version: u8) -> Self {
         Self {
             version,
-            args: DEFAULT_JVM_ARGS.iter().map(|s| s.to_string()).collect(),
+            args: DEFAULT_JVM_ARGS.as_args(),
         }
     }
 }
@@ -39,7 +65,7 @@ impl Default for InstanceServerSettings {
     fn default() -> Self {
         Self {
             jar: PathBuf::from("server.jar"),
-            args: vec!["--nogui".to_string()],
+            args: DEFAULT_SERVER_ARGS.as_args(),
         }
     }
 }

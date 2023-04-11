@@ -1,3 +1,4 @@
-imports_granularity = "Module"
+# brace_style = "PreferSameLine"
 group_imports = "StdExternalCrate"
+imports_granularity = "Module"
 where_single_line = true

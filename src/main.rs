@@ -138,11 +138,13 @@ async fn main() -> Result<()> {
         let versions = manifest.versions;
         let version_ids = versions.iter().map(|v| &v.id).collect_vec();
 
-        let version = matches
-            .get_one::<VersionNumber>("version")
-            .expect("No version provided");
+        let version: VersionNumber = matches
+            .get_one::<String>("version")
+            .expect("No version provided")
+            .parse()
+            .expect("infallible");
 
-        if !version_ids.contains(&version) {
+        if !version_ids.contains(&&version) {
             cmd.error(
                 ErrorKind::ValueValidation,
                 format!("Invalid version: {}", version),
@@ -152,7 +154,7 @@ async fn main() -> Result<()> {
 
         let version = versions
             .iter()
-            .find(|v| v.id == *version)
+            .find(|v| v.id == version)
             .expect("infallible"); // checked above
 
         let time_format = "%-d %B %Y at %-I:%M:%S%P UTC";
@@ -223,11 +225,13 @@ async fn main() -> Result<()> {
                 .wrap_err("Error while installing latest version")?;
         }
     } else if let Some(matches) = matches.subcommand_matches("run") {
-        let version = matches
-            .get_one::<VersionNumber>("version")
-            .expect("No version provided");
+        let version: VersionNumber = matches
+            .get_one::<String>("version")
+            .expect("No version provided")
+            .parse()
+            .expect("infallible");
 
-        app::run_version(version.clone())
+        app::run_version(version)
             .await
             .wrap_err("Error while running server")?;
     };

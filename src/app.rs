@@ -1,10 +1,13 @@
+use std::borrow::Cow;
 use std::env::current_exe;
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::time::Duration;
 
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use dialoguer::Confirm;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use tokio::fs;
 use tokio::process::Command;
@@ -273,13 +276,25 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
     cmd.current_dir(&instance_path);
     cmd.kill_on_drop(true);
 
-    cmd.args(settings.java.args);
-    cmd.arg("-jar");
-    cmd.arg(settings.server.jar);
-    cmd.args(settings.server.args);
+    // add all arguments
+    let mut args: Vec<OsString> = vec![];
+    args.extend(settings.java.args.iter().map(|s| s.into())); // jvm args
+    args.extend(vec!["-jar".into(), settings.server.jar.into()]); // server jar
+    args.extend(settings.server.args.iter().map(|s| s.into())); // server args
 
-    let mut child = cmd.spawn().wrap_err("Failed to start server")?;
-    let status = child.wait().await.wrap_err("Failed to wait for server")?; // says it closes the stdin but it doesn't (i guess)
+    let args_string = args
+        .iter()
+        .map(|s| shell_escape::escape(Cow::Borrowed(s.to_str().unwrap())))
+        .join(" ");
+
+    cmd.args(&args);
+
+    let mut child = cmd.spawn().wrap_err(format!(
+        "Failed to start server with command line: {java} {args}",
+        java = java_path.display(),
+        args = args_string
+    ))?;
+    let status = child.wait().await.wrap_err("Failed to wait for server")?;
 
     if !status.success() {
         let upload = Confirm::new()
@@ -328,7 +343,11 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
             }
         }
 
-        return Err(eyre!("Server exited with {status}"));
+        return Err(eyre!(
+            "Server exited with {status}. Command line: {java} {args}",
+            java = java_path.display(),
+            args = args_string
+        ));
     }
 
     Ok(())
