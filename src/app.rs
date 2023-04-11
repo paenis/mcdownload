@@ -172,7 +172,7 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
             "Failed to create directory for JRE {major_version}"
         ))?;
 
-        while let Some(entry) = entries.next() {
+        for entry in entries {
             let mut entry = entry?;
             let path = entry.path()?;
             // strip the first directory
