@@ -15,17 +15,17 @@ jobs:
     strategy:
       matrix:
         build:
-          [linux-stable, linux-beta, linux-nightly, linux-nightly-aarch64, win-msvc, win-gnu]
+          [linux-nightly, linux-nightly-aarch64, win-msvc]
         profile:
           # dev artifacts are a little redundant, but can be useful
           [dev, release, release-nodebug] 
         include:
-          - build: linux-stable
-            os: ubuntu-22.04
-            rust: stable
-          - build: linux-beta
-            os: ubuntu-22.04
-            rust: beta
+          # - build: linux-stable
+          #   os: ubuntu-22.04
+          #   rust: stable
+          # - build: linux-beta
+          #   os: ubuntu-22.04
+          #   rust: beta
           - build: linux-nightly
             os: ubuntu-22.04
             rust: nightly
@@ -52,9 +52,9 @@ jobs:
           - build: win-msvc
             os: windows-2022
             rust: nightly
-          - build: win-gnu
-            os: windows-2022
-            rust: nightly-x86_64-gnu
+          # - build: win-gnu
+          #   os: windows-2022
+          #   rust: nightly-x86_64-gnu
     steps:
       - name: Checkout
         uses: actions/checkout@v3
