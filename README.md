@@ -9,7 +9,7 @@ or, if you're not logged in, from [nightly.link][nightly].
 
 ### From source
 
-<!-- TODO: this (i think) installs to .cargo/bin, so i should probably change the folder structure to not clobber anything -->
+<!-- [ ] TODO: this (i think) installs to .cargo/bin, so i should probably change the folder structure to not clobber anything -->
 ```sh
 cargo install --git https://github.com/paenis/mcdownload
 ```
@@ -19,13 +19,13 @@ cargo install --git https://github.com/paenis/mcdownload
 
 ## Todo
 
-- types/meta
-  - `Settings` struct
-    - global default java flags (maybe)
-- main
-  - alternative outputs (JSON/debug/etc.) for info/list commands
-  - `-i`/`--installed` filter for list command
-  - `tracing_error` for `eyre`, maybe
-  - third-party servers (fabric, forge, etc.) #1
-- types/version
-  - fabric meta (?)
+- [ ] types/meta
+  - [ ] `Settings` struct
+    - [ ] global default java flags (maybe)
+- [ ] main
+  - [ ] alternative outputs (JSON/debug/etc.) for info/list commands
+  - [ ] `-i`/`--installed` filter for list command
+  - [ ] `tracing_error` for `eyre`, maybe
+  - [ ] third-party servers (fabric, forge, etc.) #1
+- [ ] types/version
+  - [ ] fabric meta (?)
