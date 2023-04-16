@@ -1,0 +1,85 @@
+name: build artifacts
+on: workflow_dispatch
+
+jobs:
+  build:
+    name: build ${{ matrix.build }}
+    env:
+        CARGO: cargo
+        TARGET_FLAGS: ""
+        TARGET_DIR: ./target
+        OTHER_FLAGS: --profile release-lto ${{ matrix.flags }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build:
+          [stable, beta, nightly, nightly-musl, nightly-aarch64, nightly-aarch64-musl, win-msvc, win-gnu]
+        include:
+          - build: stable
+            os: ubuntu-22.04
+            rust: stable
+          - build: beta
+            os: ubuntu-22.04
+            rust: beta
+          - build: nightly
+            os: ubuntu-22.04
+            rust: nightly
+          - build: nightly-musl
+            os: ubuntu-22.04
+            rust: nightly
+            target: x86_64-unknown-linux-musl
+            flags: --features vendored-openssl --features rustls
+          # - build: nightly-armv6
+          #   os: ubuntu-22.04
+          #   rust: nightly
+          #   target: arm-unknown-linux-gnueabihf
+          #   flags: --features vendored-openssl --features rustls
+          - build: nightly-aarch64
+            os: ubuntu-22.04
+            rust: nightly
+            target: aarch64-unknown-linux-gnu
+            flags: --features vendored-openssl --features rustls
+          - build: nightly-aarch64-musl
+            os: ubuntu-22.04
+            rust: nightly
+            target: aarch64-unknown-linux-musl
+            flags: --features vendored-openssl --features rustls
+          - build: win-msvc
+            os: windows-2022
+            rust: nightly
+          - build: win-gnu
+            os: windows-2022
+            rust: nightly-x86_64-gnu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install packages (Ubuntu)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends --reinstall \
+            openssl libssl-dev openssl musl-tools
+          export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig/
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: Use Cross
+        if: matrix.target != ''
+        run: |
+          cargo install cross
+          echo "CARGO=cross" >> $GITHUB_ENV
+          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
+          echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+
+      - name: Build
+        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.build }}
+          path: ${{ env.TARGET_DIR }}/release-lto/mcdownload*
