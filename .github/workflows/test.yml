@@ -11,6 +11,7 @@ jobs:
       TARGET_FLAGS: ""
       TARGET_DIR: ./target
       OTHER_FLAGS: ${{ matrix.flags }}
+      TEST_FLAGS: ""
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -80,12 +81,14 @@ jobs:
           echo "CARGO=cross" >> $GITHUB_ENV
           echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
           echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+          echo "TEST_FLAGS=--bins" >> $GITHUB_ENV
 
       - name: Build
         run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }}
 
       - name: Test
-        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }}
+        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }} ${{ env.TEST_FLAGS }}
   trigger_build:
+    name: trigger build
     needs: test
     uses: ./.github/workflows/build.yml
