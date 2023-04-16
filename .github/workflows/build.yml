@@ -11,6 +11,7 @@ jobs:
         TARGET_DIR: ./target
         OTHER_FLAGS: ${{ matrix.flags }}
         PROFILE: ${{ matrix.profile }}
+        BUILD_DIR: ${{ matrix.profile != 'dev' && matrix.profile || 'debug' }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -56,14 +57,6 @@ jobs:
           #   os: windows-2022
           #   rust: nightly-x86_64-gnu
     steps:
-      - name: Set build directory
-        run: |
-          if [ "${{ matrix.profile }}" == "dev" ]; then
-            echo "BUILD_DIR=debug" >> $GITHUB_ENV
-          else
-            echo "BUILD_DIR=${{ matrix.profile }}" >> $GITHUB_ENV
-          fi
-
       - name: Checkout
         uses: actions/checkout@v3
 
