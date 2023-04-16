@@ -1,6 +1,23 @@
 # mcdownload
 
-## todo
+## Installation
+
+### Compiled binaries
+
+Binaries for Linux (amd64 and aarch64) and Windows (amd64) are available as [Actions artifacts][actions]
+or, if you're not logged in, from [nightly.link][nightly].
+
+### From source
+
+<!-- TODO: this (i think) installs to .cargo/bin, so i should probably change the folder structure to not clobber anything -->
+```sh
+cargo install --git https://github.com/paenis/mcdownload
+```
+
+[actions]: https://github.com/paenis/mcdownload/actions?query=is%3Asuccess
+[nightly]: https://nightly.link/paenis/mcdownload/workflows/test/main
+
+## Todo
 
 - types/meta
   - `Settings` struct
@@ -8,7 +25,7 @@
 - main
   - alternative outputs (JSON/debug/etc.) for info/list commands
   - `-i`/`--installed` filter for list command
-  - implement run
   - `tracing_error` for `eyre`, maybe
+  - third-party servers (fabric, forge, etc.) #1
 - types/version
-  - fabric meta
+  - fabric meta (?)
