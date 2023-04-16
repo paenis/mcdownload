@@ -86,18 +86,15 @@ async fn main() -> Result<()> {
     });
 
     if let Some(matches) = matches.subcommand_matches("list") {
-        let term_width = match terminal_size::terminal_size() {
+        let term_width: Option<usize> = match terminal_size::terminal_size() {
             Some((terminal_size::Width(w), _)) => {
                 if w < 20 {
                     cmd.error(ErrorKind::Io, "Terminal width is too small")
                         .exit();
                 }
-                w as usize
+                Some(w as usize)
             }
-            _ => {
-                cmd.error(ErrorKind::Io, "Unable to get terminal width")
-                    .exit();
-            }
+            _ => None,
         };
 
         let versions = manifest_thread.await??.versions;
@@ -118,6 +115,11 @@ async fn main() -> Result<()> {
             versions.iter().filter(|v| v.id.is_release()).collect_vec()
         };
 
+        if term_width.is_none() {
+            versions_filtered.iter().for_each(|v| println!("{}", v.id));
+            return Ok(());
+        }
+
         // Print a terminal table with tabulated data
         let max_len = versions_filtered
             .iter()
@@ -126,7 +128,8 @@ async fn main() -> Result<()> {
             .expect("No versions found")
             + 1;
 
-        for chunk in versions_filtered.chunks(term_width / (max_len + 1)) {
+        // unwrap checked above
+        for chunk in versions_filtered.chunks(term_width.unwrap() / (max_len + 1)) {
             let row = chunk
                 .iter()
                 .map(|v| format!("{:max_len$}", v.id.to_string()))
