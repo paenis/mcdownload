@@ -86,3 +86,6 @@ jobs:
 
       - name: Test
         run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }}
+  trigger_build:
+    needs: test
+    uses: ./.github/workflows/build.yml
