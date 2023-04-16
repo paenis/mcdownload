@@ -56,6 +56,14 @@ jobs:
           #   os: windows-2022
           #   rust: nightly-x86_64-gnu
     steps:
+      - name: Set build directory
+        run: |
+          if [ "${{ matrix.profile }}" == "dev" ]; then
+            echo "BUILD_DIR=debug" >> $GITHUB_ENV
+          else
+            echo "BUILD_DIR=${{ matrix.profile }}" >> $GITHUB_ENV
+          fi
+
       - name: Checkout
         uses: actions/checkout@v3
 
@@ -88,5 +96,5 @@ jobs:
         with:
           name: ${{ matrix.build }}-${{ env.PROFILE }}
           path: |
-            ${{ env.TARGET_DIR }}/${{ env.PROFILE }}/mcdownload*
-            !${{ env.TARGET_DIR }}/${{ env.PROFILE }}/mcdownload.d
+            ${{ env.TARGET_DIR }}/${{ env.BUILD_DIR }}/mcdownload*
+            !${{ env.TARGET_DIR }}/${{ env.BUILD_DIR }}/mcdownload.d
