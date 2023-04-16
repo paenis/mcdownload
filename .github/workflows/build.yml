@@ -1,5 +1,19 @@
 name: build artifacts
-on: workflow_dispatch
+on: 
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Build profile'
+        required: true
+        default: 'release-lto'
+        type: choice
+        options:
+          - dev
+          - release
+          - release-lto
+          - release-nodebug
+          - release-nodebug-lto
+
 
 jobs:
   build:
@@ -8,7 +22,7 @@ jobs:
         CARGO: cargo
         TARGET_FLAGS: ""
         TARGET_DIR: ./target
-        OTHER_FLAGS: --profile release-lto ${{ matrix.flags }}
+        OTHER_FLAGS: --profile ${{ inputs.profile }} ${{ matrix.flags }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -83,5 +97,5 @@ jobs:
         with:
           name: ${{ matrix.build }}
           path: |
-            ${{ env.TARGET_DIR }}/release-lto/mcdownload*
-            !${{ env.TARGET_DIR }}/release-lto/mcdownload.d
+            ${{ env.TARGET_DIR }}/${{ inputs.profile }}/mcdownload*
+            !${{ env.TARGET_DIR }}/${{ inputs.profile }}/mcdownload.d
