@@ -1,34 +1,24 @@
 name: build artifacts
-run-name: build ${{ inputs.profile }} for ${{ github.ref_name }}@${{ github.sha }}
-on: 
-  workflow_dispatch:
-    inputs:
-      profile:
-        description: 'Build profile'
-        required: true
-        default: 'release-lto'
-        type: choice
-        options:
-          - dev
-          - release
-          - release-lto
-          - release-nodebug
-          - release-nodebug-lto
-
+run-name: build artifacts for ${{ github.ref_name }}@${{ github.sha }}
+on: [push, pull_request]
 
 jobs:
   build:
-    name: build ${{ matrix.build }}
+    name: build ${{ matrix.profile }} for ${{ matrix.build }}
     env:
         CARGO: cargo
         TARGET_FLAGS: ""
         TARGET_DIR: ./target
-        OTHER_FLAGS: --profile ${{ inputs.profile }} ${{ matrix.flags }}
+        OTHER_FLAGS: ${{ matrix.flags }}
+        PROFILE: ${{ matrix.profile }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         build:
-          [linux-stable, linux-beta, linux-nightly, linux-nightly-musl, linux-nightly-aarch64, linux-nightly-aarch64-musl, win-msvc, win-gnu]
+          [linux-stable, linux-beta, linux-nightly, linux-nightly-aarch64, win-msvc, win-gnu]
+        profile:
+          # dev artifacts are a little redundant, but can be useful
+          [dev, release, release-nodebug] 
         include:
           - build: linux-stable
             os: ubuntu-22.04
@@ -39,12 +29,12 @@ jobs:
           - build: linux-nightly
             os: ubuntu-22.04
             rust: nightly
-          - build: linux-nightly-musl
-            os: ubuntu-22.04
-            rust: nightly
-            target: x86_64-unknown-linux-musl
-            flags: --features vendored-openssl --features rustls
-          # - build: nightly-armv6
+          # - build: linux-nightly-musl
+          #   os: ubuntu-22.04
+          #   rust: nightly
+          #   target: x86_64-unknown-linux-musl
+          #   flags: --features vendored-openssl --features rustls
+          # - build: linux-nightly-armv6
           #   os: ubuntu-22.04
           #   rust: nightly
           #   target: arm-unknown-linux-gnueabihf
@@ -54,11 +44,11 @@ jobs:
             rust: nightly
             target: aarch64-unknown-linux-gnu
             flags: --features vendored-openssl --features rustls
-          - build: linux-nightly-aarch64-musl
-            os: ubuntu-22.04
-            rust: nightly
-            target: aarch64-unknown-linux-musl
-            flags: --features vendored-openssl --features rustls
+          # - build: linux-nightly-aarch64-musl
+          #   os: ubuntu-22.04
+          #   rust: nightly
+          #   target: aarch64-unknown-linux-musl
+          #   flags: --features vendored-openssl --features rustls
           - build: win-msvc
             os: windows-2022
             rust: nightly
@@ -91,12 +81,12 @@ jobs:
           echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
 
       - name: Build
-        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }}
+        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }} --profile ${{ env.PROFILE }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.build }}
+          name: ${{ matrix.build }}-${{ env.PROFILE }}
           path: |
-            ${{ env.TARGET_DIR }}/${{ inputs.profile }}/mcdownload*
-            !${{ env.TARGET_DIR }}/${{ inputs.profile }}/mcdownload.d
+            ${{ env.TARGET_DIR }}/${{ env.PROFILE }}/mcdownload*
+            !${{ env.TARGET_DIR }}/${{ env.PROFILE }}/mcdownload.d
