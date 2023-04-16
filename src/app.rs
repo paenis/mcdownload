@@ -166,7 +166,7 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
         let tar = GzDecoder::new(&mut reader);
         let mut archive = Archive::new(tar);
 
-        let mut entries = archive.entries()?;
+        let entries = archive.entries()?;
 
         std::fs::create_dir_all(&jre_dir).wrap_err(format!(
             "Failed to create directory for JRE {major_version}"
