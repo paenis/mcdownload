@@ -100,7 +100,9 @@ jobs:
         uses: actions/upload-artifact@v3
         with: 
           name: ${{ matrix.build }}-debug
-          path: ${{ env.TARGET_DIR }}/debug/mcdownload{,.exe,.pdb}
+          path: |
+            ${{ env.TARGET_DIR }}/debug/mcdownload*
+            !${{ env.TARGET_DIR }}/debug/mcdownload.d
 
   trigger_build:
     name: trigger build

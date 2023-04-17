@@ -87,4 +87,6 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.build }}-${{ env.PROFILE }}
-          path: ${{ env.TARGET_DIR }}/${{ env.BUILD_DIR }}/mcdownload{,.exe,.pdb}
+          path: |
+            ${{ env.TARGET_DIR }}/${{ env.BUILD_DIR }}/mcdownload*
+            !${{ env.TARGET_DIR }}/${{ env.BUILD_DIR }}/mcdownload.d
