@@ -26,6 +26,6 @@ cargo install --git https://github.com/paenis/mcdownload
   - [ ] alternative outputs (JSON/debug/etc.) for info/list commands
   - [ ] `-i`/`--installed` filter for list command
   - [ ] `tracing_error` for `eyre`, maybe
-  - [ ] third-party servers (fabric, forge, etc.) #1
+  - [ ] third-party servers (fabric, forge, etc.) [#1](https://github.com/paenis/mcdownload/pull/1)
 - [ ] types/version
   - [ ] fabric meta (?)
