@@ -18,8 +18,7 @@ jobs:
         build:
           [linux-nightly, linux-nightly-aarch64, win-msvc]
         profile:
-          # dev artifacts are a little redundant, but can be useful
-          [dev, release, release-nodebug] 
+          [release, release-nodebug] 
         include:
           # - build: linux-stable
           #   os: ubuntu-22.04
@@ -88,6 +87,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.build }}-${{ env.PROFILE }}
-          path: |
-            ${{ env.TARGET_DIR }}/${{ env.BUILD_DIR }}/mcdownload*
-            !${{ env.TARGET_DIR }}/${{ env.BUILD_DIR }}/mcdownload.d
+          path: ${{ env.TARGET_DIR }}/${{ env.BUILD_DIR }}/mcdownload{,.exe,.pdb}

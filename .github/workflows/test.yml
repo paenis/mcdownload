@@ -1,7 +1,14 @@
 # heavily "inspired" by ripgrep's ci.yml
 
 name: ci
-on: [push, pull_request]
+on: 
+  push:
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
 
 jobs:
   test:
@@ -88,6 +95,13 @@ jobs:
 
       - name: Test
         run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }} ${{ env.TEST_FLAGS }}
+
+      - name: Upload debug artifacts
+        uses: actions/upload-artifact@v3
+        with: 
+          name: ${{ matrix.build }}-debug
+          path: ${{ env.TARGET_DIR }}/debug/mcdownload{,.exe,.pdb}
+
   trigger_build:
     name: trigger build
     needs: test
