@@ -5,11 +5,12 @@
 ### Compiled binaries
 
 Binaries for Linux (amd64 and aarch64) and Windows (amd64) are available as [Actions artifacts][actions]
-or, if you're not logged in, from [nightly.link][nightly].
+or, if you're not logged in, from [nightly.link][nightly]. If you're not sure which one to use,
+try `linux-nightly-release` for Linux and `win-msvc-release` for Windows.
 
 ### From source
 
-<!-- [ ] TODO: this (i think) installs to .cargo/bin, so i should probably change the folder structure to not clobber anything -->
+<!-- TODO: this (i think) installs to .cargo/bin, so i should probably change the folder structure to not clobber anything -->
 ```sh
 cargo install --git https://github.com/paenis/mcdownload
 ```
