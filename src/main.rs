@@ -120,7 +120,7 @@ async fn main() -> Result<()> {
             }
             _ => panic!("stdout is a terminal but has no size"),
         };
-        
+
         // Print a terminal table with tabulated data
         let max_len = versions_filtered
             .iter()
