@@ -1,11 +1,11 @@
 use std::borrow::Cow;
-use std::env::current_exe;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::time::Duration;
 
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use dialoguer::Confirm;
+use directories::ProjectDirs;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -18,13 +18,12 @@ use crate::types::version::{GameVersion, VersionMetadata, VersionNumber};
 use crate::utils::net::{download_jre, get_version_metadata};
 
 lazy_static! {
-    static ref CURRENT_DIR: PathBuf = current_exe()
-        .unwrap()
-        .parent()
-        .expect("infallible")
-        .to_path_buf();
-    static ref INSTANCE_BASE_DIR: PathBuf = CURRENT_DIR.join(".versions");
-    static ref JRE_BASE_DIR: PathBuf = CURRENT_DIR.join(".jre");
+    static ref PROJ_DIRS: ProjectDirs =
+        ProjectDirs::from("com.github", "paenis", env!("CARGO_PKG_NAME"))
+            .expect("failed to get project directories");
+    static ref INSTANCE_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("instance");
+    static ref JRE_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("jre");
+    static ref INSTANCE_SETTINGS_BASE_DIR: PathBuf = PROJ_DIRS.config_local_dir().join("instance");
     static ref PB_STYLE: ProgressStyle = ProgressStyle::with_template(
         "{prefix:.bold.blue.bright} {spinner:.green.bright} {wide_msg}",
     )
@@ -57,12 +56,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
                 return Ok::<(), eyre::Report>(());
             }
 
-            let instance_dir: PathBuf = current_exe()
-                .wrap_err("Failed to get current executable path")?
-                .parent()
-                .expect("infallible")
-                .join(".versions")
-                .join(version_meta.id.to_string());
+            let instance_dir = INSTANCE_BASE_DIR.join(version_meta.id.to_string());
 
             if instance_dir.exists() {
                 pb_server.finish_with_message("Cancelled (already installed)");
@@ -97,7 +91,9 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
             pb_server.set_message("Writing settings...");
             let settings = InstanceSettings::new(jre_version);
 
-            settings.save(&instance_dir.join("settings.toml")).await?;
+            settings
+                .save(INSTANCE_SETTINGS_BASE_DIR.join(format!("{}.toml", version_meta.id)))
+                .await?;
 
             pb_server.finish_with_message("Done!");
             Ok::<(), eyre::Report>(())
@@ -254,7 +250,9 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
         return Err(eyre!("Version {} is not installed", id));
     }
 
-    let settings = InstanceSettings::from_file(instance_path.join("settings.toml")).await?;
+    let settings =
+        InstanceSettings::from_file(INSTANCE_SETTINGS_BASE_DIR.join(format!("{}.toml", id)))
+            .await?;
 
     // check if the JRE is installed and install it if not
     let jre_version = settings.java.version;
@@ -366,10 +364,33 @@ fn get_java_path(version: u8) -> PathBuf {
     path
 }
 
+pub(crate) fn locate(what: &String) -> Result<()> {
+    match what.as_str() {
+        "jre" | "java" => {
+            println!("JRE base directory: {}", JRE_BASE_DIR.display());
+        }
+        "instances" | "versions" | "server" => {
+            println!("Instance base directory: {}", INSTANCE_BASE_DIR.display());
+        }
+        "config" | "settings" => {
+            println!(
+                "Instance settings base directory: {}",
+                INSTANCE_SETTINGS_BASE_DIR.display()
+            );
+        }
+        _ => {
+            return Err(eyre!("Unknown location: {}", what));
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[cfg(not(feature ="_cross"))]
     #[tokio::test]
     async fn test_install_jre() {
         // remove the jre directory if the test panics
