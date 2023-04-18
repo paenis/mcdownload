@@ -9,6 +9,7 @@ pub(crate) mod utils;
 use clap::error::ErrorKind;
 use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
+use is_terminal::IsTerminal;
 use itertools::Itertools;
 
 use crate::types::version::{GameVersion, VersionNumber};
@@ -86,17 +87,6 @@ async fn main() -> Result<()> {
     });
 
     if let Some(matches) = matches.subcommand_matches("list") {
-        let term_width: Option<usize> = match terminal_size::terminal_size() {
-            Some((terminal_size::Width(w), _)) => {
-                if w < 20 {
-                    cmd.error(ErrorKind::Io, "Terminal width is too small")
-                        .exit();
-                }
-                Some(w as usize)
-            }
-            _ => None,
-        };
-
         let versions = manifest_thread.await??.versions;
         let versions_filtered: Vec<&GameVersion> = if matches.get_flag("release") {
             versions.iter().filter(|v| v.id.is_release()).collect_vec()
@@ -115,10 +105,21 @@ async fn main() -> Result<()> {
             versions.iter().filter(|v| v.id.is_release()).collect_vec()
         };
 
-        if term_width.is_none() {
+        if !std::io::stdout().is_terminal() {
             versions_filtered.iter().for_each(|v| println!("{}", v.id));
             return Ok(());
         }
+
+        let term_width = match terminal_size::terminal_size() {
+            Some((terminal_size::Width(w), _)) => {
+                if w < 20 {
+                    cmd.error(ErrorKind::Io, "Terminal width is too small")
+                        .exit();
+                }
+                w as usize
+            }
+            _ => panic!("stdout is a terminal but has no size"),
+        };
 
         // Print a terminal table with tabulated data
         let max_len = versions_filtered
@@ -129,7 +130,7 @@ async fn main() -> Result<()> {
             + 1;
 
         // unwrap checked above
-        for chunk in versions_filtered.chunks(term_width.unwrap() / (max_len + 1)) {
+        for chunk in versions_filtered.chunks(term_width / (max_len + 1)) {
             let row = chunk
                 .iter()
                 .map(|v| format!("{:max_len$}", v.id.to_string()))

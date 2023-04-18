@@ -11,6 +11,7 @@ color-eyre = { version = "0.6.2", default-features = false }
 derive_more = { version = "0.99.17", default-features = false, features = ["constructor", "display"] }
 dialoguer = { version = "0.10.4", default-features = false }
 indicatif = "0.17.3"
+is-terminal = "0.4.7"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
 openssl = { version = "0.10.50", optional = true }
