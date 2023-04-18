@@ -1,9 +1,9 @@
-use std::env::current_exe;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 use bytes::Bytes;
 use color_eyre::eyre::{eyre, Result};
+use directories::ProjectDirs;
 use lazy_static::lazy_static;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -12,11 +12,10 @@ use crate::types::net::CachedResponse;
 use crate::types::version::{GameVersion, GameVersionList, VersionMetadata};
 
 lazy_static! {
-    static ref CACHE_BASE_DIR: PathBuf = current_exe()
-        .unwrap()
-        .parent()
-        .expect("infallible")
-        .join(".meta");
+    static ref PROJ_DIRS: ProjectDirs =
+        ProjectDirs::from("com.github", "paenis", env!("CARGO_PKG_NAME"))
+            .expect("failed to get project directories");
+    static ref CACHE_BASE_DIR: PathBuf = PROJ_DIRS.cache_dir().to_path_buf();
 }
 
 const PISTON_API_URL: &str = "https://piston-meta.mojang.com/";

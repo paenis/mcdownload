@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
         .subcommand(
             Command::new("install")
                 .about("Install a Minecraft version")
-                .after_help("Defaults to latest release version")
+                .after_help("Defaults to latest release version if none is provided")
                 .arg(
                     arg!(-v --version "The version(s) to install")
                         .action(ArgAction::Append)
@@ -69,12 +69,21 @@ async fn main() -> Result<()> {
         .subcommand(
             Command::new("run")
                 .about("Run a Minecraft version")
-                .after_help("Must be installed first")
+                .after_help("Version must be installed first")
                 .arg(
                     arg!(-v --version <VERSION> "The version to run")
                         .required(true)
                         .value_parser(value_parser!(String)), // parse as String here, validate later
                 ),
+        )
+        .subcommand(
+            Command::new("locate")
+                .about("Print the path to a config file or instance directory")
+                .after_help("Supported locations:\n\
+                \tjre | java - The Java Runtime Environment directory\n\
+                \tinstances | versions | server - The directory containing Minecraft server versions\n\
+                \tconfig | settings - The directory containing config files")
+                .arg(arg!([what] "The file or directory to locate").required(true)),
         );
     // .subcommand(Command::new("uninstall").about("Uninstall a Minecraft version"))
 
@@ -238,6 +247,12 @@ async fn main() -> Result<()> {
         app::run_version(version)
             .await
             .wrap_err("Error while running server")?;
+    } else if let Some(matches) = matches.subcommand_matches("locate") {
+        let what = matches
+            .get_one::<String>("what")
+            .expect("No input provided");
+
+        app::locate(what).wrap_err(format!("Error while locating {}", what))?;
     };
 
     Ok(())
