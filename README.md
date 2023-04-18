@@ -10,7 +10,6 @@ try `linux-nightly-release` for Linux and `win-msvc-release` for Windows.
 
 ### From source
 
-<!-- TODO: this (i think) installs to .cargo/bin, so i should probably change the folder structure to not clobber anything -->
 ```sh
 cargo install --git https://github.com/paenis/mcdownload
 ```
