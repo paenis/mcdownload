@@ -91,12 +91,14 @@ pub(crate) async fn download_jre(major_version: &u8) -> Result<Bytes> {
 mod tests {
     use super::*;
 
+    #[cfg(not(feature = "_cross"))]
     #[tokio::test]
     async fn test_get_version_manifest() {
         let manifest = get_version_manifest().await.unwrap();
         assert!(manifest.versions.len() > 0);
     }
 
+    #[cfg(not(feature = "_cross"))]
     #[tokio::test]
     async fn test_get_version_metadata() {
         let manifest = get_version_manifest().await.unwrap();

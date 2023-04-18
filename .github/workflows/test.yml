@@ -38,7 +38,7 @@ jobs:
             os: ubuntu-22.04
             rust: nightly
             target: x86_64-unknown-linux-musl
-            flags: --features vendored-openssl --features rustls
+            flags: --features _cross
           # - build: nightly-armv6
           #   os: ubuntu-22.04
           #   rust: nightly
@@ -48,12 +48,12 @@ jobs:
             os: ubuntu-22.04
             rust: nightly
             target: aarch64-unknown-linux-gnu
-            flags: --features vendored-openssl --features rustls
+            flags: --features _cross
           - build: linux-nightly-aarch64-musl
             os: ubuntu-22.04
             rust: nightly
             target: aarch64-unknown-linux-musl
-            flags: --features vendored-openssl --features rustls
+            flags: --features _cross
           - build: win-msvc
             os: windows-2022
             rust: nightly

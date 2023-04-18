@@ -390,6 +390,7 @@ pub(crate) fn locate(what: &String) -> Result<()> {
 mod tests {
     use super::*;
 
+    #[cfg(not(feature ="_cross"))]
     #[tokio::test]
     async fn test_install_jre() {
         // remove the jre directory if the test panics
