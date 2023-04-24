@@ -379,7 +379,7 @@ pub(crate) fn locate(what: &String) -> Result<()> {
             );
         }
         _ => {
-            return Err(eyre!("Unknown location: {}", what));
+            return Err(eyre!("Unknown location: {what}"));
         }
     }
 

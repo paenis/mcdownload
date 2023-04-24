@@ -179,7 +179,7 @@ async fn main() -> Result<()> {
             version.time.format(time_format),
         );
 
-        println!("{}", message);
+        println!("{message}");
     } else if let Some(matches) = matches.subcommand_matches("install") {
         let manifest = manifest_thread.await??;
         let versions = manifest.versions;
@@ -216,7 +216,7 @@ async fn main() -> Result<()> {
                 ));
             }
 
-            println!("{}\n", message);
+            println!("{message}\n");
 
             let to_install_versions = versions
                 .iter()
