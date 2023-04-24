@@ -54,9 +54,9 @@ fn test_locate_config() {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
     cmd.arg("locate").arg("config");
     match std::env::consts::OS {
-        "windows" => cmd.assert().success().stdout(predicate::str::contains("AppData\\Local")),
-        "linux" => cmd.assert().success().stdout(predicate::str::contains(".config")),
-        "macos" => cmd.assert().success().stdout(predicate::str::contains("Library/Application Support")),
-        _ => panic!("Unsupported OS"),
+        "windows" => cmd.assert().success().stdout(predicate::str::contains("AppData\\Local"));
+        "linux" => cmd.assert().success().stdout(predicate::str::contains(".config"));
+        "macos" => cmd.assert().success().stdout(predicate::str::contains("Library/Application Support"));
+        _ => panic!("Unsupported OS");
     }
 }
