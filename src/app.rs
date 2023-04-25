@@ -251,8 +251,7 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
     }
 
     let settings =
-        InstanceSettings::from_file(INSTANCE_SETTINGS_BASE_DIR.join(format!("{id}.toml")))
-            .await?;
+        InstanceSettings::from_file(INSTANCE_SETTINGS_BASE_DIR.join(format!("{id}.toml"))).await?;
 
     // check if the JRE is installed and install it if not
     let jre_version = settings.java.version;
@@ -390,7 +389,7 @@ pub(crate) fn locate(what: &String) -> Result<()> {
 mod tests {
     use super::*;
 
-    #[cfg(not(feature ="_cross"))]
+    #[cfg(not(feature = "_cross"))]
     #[tokio::test]
     async fn test_install_jre() {
         // remove the jre directory if the test panics

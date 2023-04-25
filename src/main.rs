@@ -1,6 +1,7 @@
-#![warn(clippy::all)]
-
 //! A tool for managing Minecraft server versions
+
+#![warn(clippy::all)]
+#![warn(rustdoc::all)]
 
 pub(crate) mod app;
 pub(crate) mod types;
