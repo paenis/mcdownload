@@ -25,12 +25,12 @@ const CACHE_EXPIRATION_TIME: u64 = 60 * 10; // 10 minutes
 
 #[inline]
 fn api_path(path: &str) -> String {
-    format!("{}{}", PISTON_API_URL, path)
+    format!("{PISTON_API_URL}{path}")
 }
 
 #[inline]
 fn fabric_api_path(path: &str) -> String {
-    format!("{}{}", FABRIC_API_URL, path)
+    format!("{FABRIC_API_URL}{path}")
 }
 
 pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {

@@ -160,7 +160,7 @@ async fn main() -> Result<()> {
         if !version_ids.contains(&&version) {
             cmd.error(
                 ErrorKind::ValueValidation,
-                format!("Invalid version: {}", version),
+                format!("Invalid version: {version}"),
             )
             .exit();
         }
@@ -252,7 +252,7 @@ async fn main() -> Result<()> {
             .get_one::<String>("what")
             .expect("No input provided");
 
-        app::locate(what).wrap_err(format!("Error while locating {}", what))?;
+        app::locate(what).wrap_err(format!("Error while locating {what}"))?;
     };
 
     Ok(())

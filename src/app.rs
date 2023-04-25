@@ -108,7 +108,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
         let pb_jre = bars.add(ProgressBar::new_spinner());
         pb_jre.set_style(PB_STYLE.clone());
-        pb_jre.set_prefix(format!("JRE {} for {}", jre_version, version.id));
+        pb_jre.set_prefix(format!("JRE {jre_version} for {}", version.id));
         pb_jre.enable_steady_tick(Duration::from_millis(100));
 
         // at the same time, spawn a thread to install the JRE
@@ -247,11 +247,11 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
     let instance_path = INSTANCE_BASE_DIR.join(id.to_string());
 
     if !instance_path.exists() {
-        return Err(eyre!("Version {} is not installed", id));
+        return Err(eyre!("Version {id} is not installed"));
     }
 
     let settings =
-        InstanceSettings::from_file(INSTANCE_SETTINGS_BASE_DIR.join(format!("{}.toml", id)))
+        InstanceSettings::from_file(INSTANCE_SETTINGS_BASE_DIR.join(format!("{id}.toml")))
             .await?;
 
     // check if the JRE is installed and install it if not
@@ -261,7 +261,7 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
     if !jre_dir.exists() {
         let pb = ProgressBar::new_spinner();
         pb.set_style(PB_STYLE.clone());
-        pb.set_prefix(format!("JRE {} for {}", jre_version, id));
+        pb.set_prefix(format!("JRE {jre_version} for {id}"));
         pb.enable_steady_tick(Duration::from_millis(100));
 
         install_jre(&jre_version, &pb).await?;
