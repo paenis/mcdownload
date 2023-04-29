@@ -3,6 +3,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use bytes::Bytes;
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use dialoguer::Confirm;
 use directories::ProjectDirs;
@@ -147,96 +148,7 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 
     pb.set_message("Extracting JRE...");
 
-    {
-        #![cfg(target_os = "linux")]
-
-        use std::os::unix::fs::PermissionsExt;
-
-        use bytes::Buf;
-        use flate2::read::GzDecoder;
-        use tar::Archive;
-
-        // archive structure is jre*/bin/java
-        // we want to extract the contents of jre* to the jre directory
-        let mut reader = jre.reader();
-        let tar = GzDecoder::new(&mut reader);
-        let mut archive = Archive::new(tar);
-
-        let entries = archive.entries()?;
-
-        std::fs::create_dir_all(&jre_dir).wrap_err(format!(
-            "Failed to create directory for JRE {major_version}"
-        ))?;
-
-        for entry in entries {
-            let mut entry = entry?;
-            let path = entry.path()?;
-            // strip the first directory
-            let path: PathBuf = path.components().skip(1).collect();
-            let path = jre_dir.join(path);
-            entry.unpack(path)?;
-        }
-
-        // make the java binary executable
-        let java_path = jre_dir.join("bin").join("java");
-        let mut perms = std::fs::metadata(&java_path)?.permissions();
-        perms.set_mode(0o755);
-        std::fs::set_permissions(&java_path, perms)?;
-
-        // sanity check
-        let java_path = jre_dir.join("bin").join("java");
-        if !java_path.exists() {
-            return Err(eyre!(
-                "Failed to extract JRE ({} does not exist)",
-                java_path.display()
-            ));
-        }
-    }
-
-    {
-        #![cfg(target_os = "windows")]
-
-        use std::io::{BufReader, Cursor, Read};
-
-        use zip::ZipArchive;
-
-        // same as above but with zip
-        fs::create_dir_all(&jre_dir).await.wrap_err(format!(
-            "Failed to create directory for JRE {major_version}",
-        ))?;
-
-        let reader: BufReader<Cursor<Vec<u8>>> = BufReader::new(Cursor::new(jre.into()));
-        let mut archive = ZipArchive::new(reader)?;
-
-        // this crate is so bad
-        for i in 0..archive.len() {
-            let mut entry = archive.by_index(i)?;
-            let path = entry.enclosed_name().unwrap();
-
-            // strip the first directory
-            let path: PathBuf = path.components().skip(1).collect();
-            let path = jre_dir.join(path);
-
-            if entry.is_dir() {
-                std::fs::create_dir_all(path)?;
-                continue;
-            }
-
-            let mut buf = vec![0u8; entry.size() as usize];
-            entry.read_exact(&mut buf)?;
-
-            std::fs::write(path, buf)?; // async write breaks because ZipFile is not Send
-        }
-
-        // sanity check
-        let java_path = jre_dir.join("bin").join("java.exe");
-        if !java_path.exists() {
-            return Err(eyre!(
-                "Failed to extract JRE ({} does not exist)",
-                java_path.display()
-            ));
-        }
-    }
+    extract_jre(&jre, &jre_dir).wrap_err(format!("Failed to extract JRE"))?;
 
     pb.finish_with_message("Done!");
 
@@ -350,19 +262,6 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
     Ok(())
 }
 
-fn get_java_path(version: u8) -> PathBuf {
-    let mut path = JRE_BASE_DIR.join(version.to_string());
-    path.push("bin");
-
-    match std::env::consts::OS {
-        "windows" => path.push("java.exe"),
-        "linux" => path.push("java"),
-        _ => panic!("Unsupported OS"),
-    }
-
-    path
-}
-
 pub(crate) fn locate(what: &String) -> Result<()> {
     match what.as_str() {
         "jre" | "java" => {
@@ -403,12 +302,112 @@ mod tests {
 
         install_jre(&8, &ProgressBar::hidden()).await.unwrap();
 
-        let path = JRE_BASE_DIR.join("8/bin");
-
-        match std::env::consts::OS {
-            "windows" => assert!(path.join("java.exe").exists()),
-            "linux" => assert!(path.join("java").exists()),
-            _ => assert!(false),
-        }
+        assert!(get_java_path(8).exists(), "{:?}", get_java_path(8));
     }
+}
+
+// platform specific stuff
+
+#[cfg(windows)]
+fn extract_jre(jre: &Bytes, jre_dir: &PathBuf) -> Result<()> {
+    use std::io::{BufReader, Cursor, Read};
+
+    use zip::ZipArchive;
+    std::fs::create_dir_all(&jre_dir).wrap_err(format!(
+        "Failed to create directory for JRE: {path}",
+        path = jre_dir.display()
+    ))?;
+    let reader: BufReader<Cursor<Vec<u8>>> = BufReader::new(Cursor::new(jre.clone().into()));
+    let mut archive = ZipArchive::new(reader)?;
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i)?;
+        let path = entry.enclosed_name().unwrap();
+
+        // strip the first directory
+        let path: PathBuf = path.components().skip(1).collect();
+        let path = jre_dir.join(path);
+
+        if entry.is_dir() {
+            std::fs::create_dir_all(path)?;
+            continue;
+        }
+
+        let mut buf = vec![0u8; entry.size() as usize];
+        entry.read_exact(&mut buf)?;
+
+        std::fs::write(path, buf)?; // async write breaks because ZipFile is not Send
+    }
+    let java_path = jre_dir.join("bin").join("java.exe");
+    if !java_path.exists() {
+        return Err(eyre!(
+            "Failed to extract JRE ({} does not exist)",
+            java_path.display()
+        ));
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn extract_jre(jre: &Bytes, jre_dir: &PathBuf) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    use bytes::Buf;
+    use flate2::read::GzDecoder;
+    use tar::Archive;
+
+    let mut reader = jre.reader();
+    let tar = GzDecoder::new(&mut reader);
+    let mut archive = Archive::new(tar);
+    let entries = archive.entries()?;
+    std::fs::create_dir_all(jre_dir).wrap_err(format!(
+        "Failed to create directory for JRE {major_version}"
+    ))?;
+    for entry in entries {
+        let mut entry = entry?;
+        let path = entry.path()?;
+        // strip the first directory
+        let path: PathBuf = path.components().skip(1).collect();
+        let path = jre_dir.join(path);
+        entry.unpack(path)?;
+    }
+    let java_path = jre_dir.join("bin").join("java");
+    let mut perms = std::fs::metadata(&java_path)?.permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&java_path, perms)?;
+    let java_path = jre_dir.join("bin").join("java");
+    if !java_path.exists() {
+        return Err(eyre!(
+            "Failed to extract JRE ({} does not exist)",
+            java_path.display()
+        ));
+    }
+
+    Ok(())
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+fn extract_jre(_jre: &Bytes, _jre_dir: &PathBuf) -> Result<()> {
+    Err(eyre!("Unsupported OS"))
+}
+
+#[cfg(windows)]
+fn get_java_path(version: u8) -> PathBuf {
+    JRE_BASE_DIR
+        .join(version.to_string())
+        .join("bin")
+        .join("java.exe")
+}
+
+#[cfg(target_os = "linux")]
+fn get_java_path(version: u8) -> PathBuf {
+    JRE_BASE_DIR
+        .join(version.to_string())
+        .join("bin")
+        .join("java")
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+fn get_java_path(_version: u8) -> PathBuf {
+    panic!("Unsupported OS")
 }
