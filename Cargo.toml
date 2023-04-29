@@ -43,7 +43,7 @@ flate2 = "1.0.25"
 tar = "0.4.38"
 
 [features]
-vendored-openssl = ["openssl?/vendored"]
+vendored-openssl = ["openssl/vendored"]
 rustls = ["reqwest/rustls-tls"]
 _cross = ["vendored-openssl", "rustls"]
 
