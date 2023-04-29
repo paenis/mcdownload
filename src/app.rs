@@ -148,7 +148,7 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 
     pb.set_message("Extracting JRE...");
 
-    extract_jre(&jre, &jre_dir).wrap_err(format!("Failed to extract JRE"))?;
+    extract_jre(jre, &jre_dir).wrap_err(format!("Failed to extract JRE"))?;
 
     pb.finish_with_message("Done!");
 
@@ -309,16 +309,19 @@ mod tests {
 // platform specific stuff
 
 #[cfg(windows)]
-fn extract_jre(jre: &Bytes, jre_dir: &PathBuf) -> Result<()> {
+fn extract_jre(jre: Bytes, jre_dir: &PathBuf) -> Result<()> {
     use std::io::{BufReader, Cursor, Read};
 
     use zip::ZipArchive;
+
     std::fs::create_dir_all(&jre_dir).wrap_err(format!(
         "Failed to create directory for JRE: {path}",
         path = jre_dir.display()
     ))?;
-    let reader: BufReader<Cursor<Vec<u8>>> = BufReader::new(Cursor::new(jre.clone().into()));
+
+    let reader: BufReader<Cursor<Vec<u8>>> = BufReader::new(Cursor::new(jre.into()));
     let mut archive = ZipArchive::new(reader)?;
+
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i)?;
         let path = entry.enclosed_name().unwrap();
@@ -335,9 +338,11 @@ fn extract_jre(jre: &Bytes, jre_dir: &PathBuf) -> Result<()> {
         let mut buf = vec![0u8; entry.size() as usize];
         entry.read_exact(&mut buf)?;
 
-        std::fs::write(path, buf)?; // async write breaks because ZipFile is not Send
+        std::fs::write(path, buf)?;
     }
+
     let java_path = jre_dir.join("bin").join("java.exe");
+
     if !java_path.exists() {
         return Err(eyre!(
             "Failed to extract JRE ({} does not exist)",
@@ -349,7 +354,7 @@ fn extract_jre(jre: &Bytes, jre_dir: &PathBuf) -> Result<()> {
 }
 
 #[cfg(target_os = "linux")]
-fn extract_jre(jre: &Bytes, jre_dir: &PathBuf) -> Result<()> {
+fn extract_jre(jre: Bytes, jre_dir: &PathBuf) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
 
     use bytes::Buf;
@@ -357,31 +362,37 @@ fn extract_jre(jre: &Bytes, jre_dir: &PathBuf) -> Result<()> {
     use tar::Archive;
 
     let mut reader = jre.reader();
-    let tar = GzDecoder::new(&mut reader);
-    let mut archive = Archive::new(tar);
+    let mut archive = Archive::new(GzDecoder::new(&mut reader));
     let entries = archive.entries()?;
+
     std::fs::create_dir_all(jre_dir).wrap_err(format!(
-        "Failed to create directory for JRE {major_version}"
+        "Failed to create directory for JRE: {path}",
+        path = jre_dir.display()
     ))?;
+
     for entry in entries {
         let mut entry = entry?;
         let path = entry.path()?;
+
         // strip the first directory
         let path: PathBuf = path.components().skip(1).collect();
         let path = jre_dir.join(path);
+
         entry.unpack(path)?;
     }
+
     let java_path = jre_dir.join("bin").join("java");
-    let mut perms = std::fs::metadata(&java_path)?.permissions();
-    perms.set_mode(0o755);
-    std::fs::set_permissions(&java_path, perms)?;
-    let java_path = jre_dir.join("bin").join("java");
+
     if !java_path.exists() {
         return Err(eyre!(
             "Failed to extract JRE ({} does not exist)",
             java_path.display()
         ));
     }
+
+    let mut perms = std::fs::metadata(&java_path)?.permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&java_path, perms)?;
 
     Ok(())
 }
