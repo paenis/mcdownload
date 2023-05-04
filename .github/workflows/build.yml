@@ -1,6 +1,6 @@
 name: build artifacts
 run-name: build artifacts for ${{ github.ref_name }}@${{ github.sha }}
-on: [push, pull_request]
+on: [workflow_call, workflow_dispatch]
 
 jobs:
   build:
@@ -18,8 +18,7 @@ jobs:
         build:
           [linux-nightly, linux-nightly-aarch64, win-msvc]
         profile:
-          # dev artifacts are a little redundant, but can be useful
-          [dev, release, release-nodebug] 
+          [release, release-nodebug] 
         include:
           # - build: linux-stable
           #   os: ubuntu-22.04

@@ -56,7 +56,7 @@ macro_rules! parse_variants {
                 $( if let Ok(v) = s.parse::<$ty>() {
                     return Ok(Self::$variant(v));
                 } else )* {
-                    return Err(color_eyre::eyre::eyre!("Failed to parse input string: {}", s));
+                    return Err(color_eyre::eyre::eyre!("Failed to parse input string: {s}"));
                 }
             }
         }

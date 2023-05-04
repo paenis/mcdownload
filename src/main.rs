@@ -1,6 +1,7 @@
-#![warn(clippy::all)]
-
 //! A tool for managing Minecraft server versions
+
+#![warn(clippy::all)]
+#![warn(rustdoc::all)]
 
 pub(crate) mod app;
 pub(crate) mod types;
@@ -9,6 +10,7 @@ pub(crate) mod utils;
 use clap::error::ErrorKind;
 use clap::{arg, command, crate_version, value_parser, ArgAction, ArgGroup, Command};
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
+use is_terminal::IsTerminal;
 use itertools::Itertools;
 
 use crate::types::version::{GameVersion, VersionNumber};
@@ -56,7 +58,7 @@ async fn main() -> Result<()> {
         .subcommand(
             Command::new("install")
                 .about("Install a Minecraft version")
-                .after_help("Defaults to latest release version")
+                .after_help("Defaults to latest release version if none is provided")
                 .arg(
                     arg!(-v --version "The version(s) to install")
                         .action(ArgAction::Append)
@@ -68,12 +70,21 @@ async fn main() -> Result<()> {
         .subcommand(
             Command::new("run")
                 .about("Run a Minecraft version")
-                .after_help("Must be installed first")
+                .after_help("Version must be installed first")
                 .arg(
                     arg!(-v --version <VERSION> "The version to run")
                         .required(true)
                         .value_parser(value_parser!(String)), // parse as String here, validate later
                 ),
+        )
+        .subcommand(
+            Command::new("locate")
+                .about("Print the path to a config file or instance directory")
+                .after_help("Supported locations:\n\
+                \tjre | java - The Java Runtime Environment directory\n\
+                \tinstances | versions | server - The directory containing Minecraft server versions\n\
+                \tconfig | settings - The directory containing config files")
+                .arg(arg!([what] "The file or directory to locate").required(true)),
         );
     // .subcommand(Command::new("uninstall").about("Uninstall a Minecraft version"))
 
@@ -86,20 +97,6 @@ async fn main() -> Result<()> {
     });
 
     if let Some(matches) = matches.subcommand_matches("list") {
-        let term_width = match terminal_size::terminal_size() {
-            Some((terminal_size::Width(w), _)) => {
-                if w < 20 {
-                    cmd.error(ErrorKind::Io, "Terminal width is too small")
-                        .exit();
-                }
-                w as usize
-            }
-            _ => {
-                cmd.error(ErrorKind::Io, "Unable to get terminal width")
-                    .exit();
-            }
-        };
-
         let versions = manifest_thread.await??.versions;
         let versions_filtered: Vec<&GameVersion> = if matches.get_flag("release") {
             versions.iter().filter(|v| v.id.is_release()).collect_vec()
@@ -118,6 +115,22 @@ async fn main() -> Result<()> {
             versions.iter().filter(|v| v.id.is_release()).collect_vec()
         };
 
+        if !std::io::stdout().is_terminal() {
+            versions_filtered.iter().for_each(|v| println!("{}", v.id));
+            return Ok(());
+        }
+
+        let term_width = match terminal_size::terminal_size() {
+            Some((terminal_size::Width(w), _)) => {
+                if w < 20 {
+                    cmd.error(ErrorKind::Io, "Terminal width is too small")
+                        .exit();
+                }
+                w as usize
+            }
+            _ => panic!("stdout is a terminal but has no size"),
+        };
+
         // Print a terminal table with tabulated data
         let max_len = versions_filtered
             .iter()
@@ -126,6 +139,7 @@ async fn main() -> Result<()> {
             .expect("No versions found")
             + 1;
 
+        // unwrap checked above
         for chunk in versions_filtered.chunks(term_width / (max_len + 1)) {
             let row = chunk
                 .iter()
@@ -147,7 +161,7 @@ async fn main() -> Result<()> {
         if !version_ids.contains(&&version) {
             cmd.error(
                 ErrorKind::ValueValidation,
-                format!("Invalid version: {}", version),
+                format!("Invalid version: {version}"),
             )
             .exit();
         }
@@ -166,7 +180,7 @@ async fn main() -> Result<()> {
             version.time.format(time_format),
         );
 
-        println!("{}", message);
+        println!("{message}");
     } else if let Some(matches) = matches.subcommand_matches("install") {
         let manifest = manifest_thread.await??;
         let versions = manifest.versions;
@@ -203,7 +217,7 @@ async fn main() -> Result<()> {
                 ));
             }
 
-            println!("{}\n", message);
+            println!("{message}\n");
 
             let to_install_versions = versions
                 .iter()
@@ -234,6 +248,12 @@ async fn main() -> Result<()> {
         app::run_version(version)
             .await
             .wrap_err("Error while running server")?;
+    } else if let Some(matches) = matches.subcommand_matches("locate") {
+        let what = matches
+            .get_one::<String>("what")
+            .expect("No input provided");
+
+        app::locate(what).wrap_err(format!("Error while locating {what}"))?;
     };
 
     Ok(())

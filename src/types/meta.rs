@@ -155,7 +155,7 @@ mod tests {
     #[tokio::test]
     async fn read_write_settings() {
         let suf: String = Alphanumeric.sample_string(&mut rand::thread_rng(), 5);
-        let path = PathBuf::from(format!("settings-{}.toml", suf));
+        let path = PathBuf::from(format!("settings-{suf}.toml"));
 
         scopeguard::defer! {
             std::fs::remove_file(&path).unwrap();
@@ -180,7 +180,7 @@ mod tests {
     #[should_panic = "Error reading settings at settings-"]
     async fn read_settings_nonexistent() {
         let suf: String = Alphanumeric.sample_string(&mut rand::thread_rng(), 5);
-        let path = PathBuf::from(format!("settings-{}.toml", suf));
+        let path = PathBuf::from(format!("settings-{suf}.toml"));
 
         let _settings = InstanceSettings::from_file(&path).await.unwrap();
     }
@@ -189,7 +189,7 @@ mod tests {
     #[should_panic = "TOML parse error"]
     async fn read_settings_invalid() {
         let suf: String = Alphanumeric.sample_string(&mut rand::thread_rng(), 5);
-        let path = PathBuf::from(format!("settings-{}.toml", suf));
+        let path = PathBuf::from(format!("settings-{suf}.toml"));
 
         scopeguard::defer! {
             std::fs::remove_file(&path).unwrap();

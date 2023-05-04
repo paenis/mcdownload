@@ -30,12 +30,12 @@ impl Display for ReleaseVersion {
                 major,
                 minor,
                 patch: 0,
-            } => write!(f, "{}.{}", major, minor),
+            } => write!(f, "{major}.{minor}"),
             ReleaseVersion {
                 major,
                 minor,
                 patch,
-            } => write!(f, "{}.{}.{}", major, minor, patch),
+            } => write!(f, "{major}.{minor}.{patch}"),
         }
     }
 }
@@ -54,7 +54,7 @@ impl FromStr for ReleaseVersion {
                 caps[2].parse().unwrap(),
                 caps.get(3).map_or(0, |m| m.as_str().parse().unwrap()),
             )),
-            None => Err(format!("Invalid version (expected X.Y.Z?, got: {})", s)),
+            None => Err(format!("Invalid version (expected X.Y.Z?, got: {s})")),
         }
     }
 }
@@ -79,13 +79,13 @@ impl Display for PreReleaseVersion {
                 minor,
                 patch: 0,
                 pre,
-            } => write!(f, "{}.{}-{}", major, minor, pre),
+            } => write!(f, "{major}.{minor}-{pre}"),
             PreReleaseVersion {
                 major,
                 minor,
                 patch,
                 pre,
-            } => write!(f, "{}.{}.{}-{}", major, minor, patch, pre),
+            } => write!(f, "{major}.{minor}.{patch}-{pre}"),
         }
     }
 }
@@ -107,8 +107,7 @@ impl FromStr for PreReleaseVersion {
                 caps[4].to_string(),
             )),
             None => Err(format!(
-                "Invalid version (expected X.Y.Z?-pre|rcN, got: {})",
-                s
+                "Invalid version (expected X.Y.Z?-pre|rcN, got: {s})"
             )),
         }
     }

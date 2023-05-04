@@ -1,45 +1,51 @@
 [package]
 name = "mcdownload"
 version = "0.1.0"
+authors = ["paenis <46578974+paenis@users.noreply.github.com>"]
 edition = "2021"
 
 [dependencies]
 bytes = "1.4.0"
 chrono = { version = "0.4.24", features = ["serde"] }
-clap = { version = "4.2.1", features = ["wrap_help", "cargo"] }
+clap = { version = "4.2.4", features = ["wrap_help", "cargo"] }
 color-eyre = { version = "0.6.2", default-features = false }
 derive_more = { version = "0.99.17", default-features = false, features = ["constructor", "display"] }
 dialoguer = { version = "0.10.4", default-features = false }
+directories = "5.0.0"
 indicatif = "0.17.3"
+is-terminal = "0.4.7"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
-openssl = { version = "0.10.50", optional = true }
+openssl = { version = "0.10.52", optional = true }
 paste = "1.0.12"
-regex = "1.7.3"
+regex = "1.8.1"
 reqwest = { version = "0.11.16", features = ["json"] }
 rmp-serde = "1.1.1"
-serde = { version = "1.0.159", features = ["derive"] }
-serde_json = "1.0.95"
+serde = { version = "1.0.160", features = ["derive"] }
+serde_json = "1.0.96"
 serde_with = "2.3.2"
 shell-escape = "0.1.5"
 terminal_size = "0.2.6"
-tokio = { version = "1.27.0", features = ["rt-multi-thread", "macros", "fs", "process"] }
+tokio = { version = "1.28.0", features = ["rt-multi-thread", "macros", "fs", "process"] }
 toml = { version = "0.7.3", features = ["preserve_order"] }
 
 [dev-dependencies]
+assert_cmd = "2.0.11"
+predicates = "3.0.3"
 rand = "0.8.5"
 scopeguard = { version = "1.1.0", default-features = false }
 
-[target.'cfg(target_os = "windows")'.dependencies]
+[target.'cfg(windows)'.dependencies]
 zip = { version = "0.6.4", default-features = false, features = ["deflate"] }
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(unix)'.dependencies]
 flate2 = "1.0.25"
 tar = "0.4.38"
 
 [features]
 vendored-openssl = ["openssl/vendored"]
 rustls = ["reqwest/rustls-tls"]
+_cross = ["vendored-openssl", "rustls"]
 
 [profile.dev]
 opt-level = 1

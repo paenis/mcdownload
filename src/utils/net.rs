@@ -1,9 +1,9 @@
-use std::env::current_exe;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 use bytes::Bytes;
 use color_eyre::eyre::{eyre, Result};
+use directories::ProjectDirs;
 use lazy_static::lazy_static;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -12,11 +12,10 @@ use crate::types::net::CachedResponse;
 use crate::types::version::{GameVersion, GameVersionList, VersionMetadata};
 
 lazy_static! {
-    static ref CACHE_BASE_DIR: PathBuf = current_exe()
-        .unwrap()
-        .parent()
-        .expect("infallible")
-        .join(".meta");
+    static ref PROJ_DIRS: ProjectDirs =
+        ProjectDirs::from("com.github", "paenis", env!("CARGO_PKG_NAME"))
+            .expect("failed to get project directories");
+    static ref CACHE_BASE_DIR: PathBuf = PROJ_DIRS.cache_dir().to_path_buf();
 }
 
 const PISTON_API_URL: &str = "https://piston-meta.mojang.com/";
@@ -26,12 +25,12 @@ const CACHE_EXPIRATION_TIME: u64 = 60 * 10; // 10 minutes
 
 #[inline]
 fn api_path(path: &str) -> String {
-    format!("{}{}", PISTON_API_URL, path)
+    format!("{PISTON_API_URL}{path}")
 }
 
 #[inline]
 fn fabric_api_path(path: &str) -> String {
-    format!("{}{}", FABRIC_API_URL, path)
+    format!("{FABRIC_API_URL}{path}")
 }
 
 pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
@@ -92,12 +91,14 @@ pub(crate) async fn download_jre(major_version: &u8) -> Result<Bytes> {
 mod tests {
     use super::*;
 
+    #[cfg(not(feature = "_cross"))]
     #[tokio::test]
     async fn test_get_version_manifest() {
         let manifest = get_version_manifest().await.unwrap();
         assert!(manifest.versions.len() > 0);
     }
 
+    #[cfg(not(feature = "_cross"))]
     #[tokio::test]
     async fn test_get_version_metadata() {
         let manifest = get_version_manifest().await.unwrap();
