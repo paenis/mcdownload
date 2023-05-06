@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+use crate::types::version::VersionNumber;
+
 lazy_static! {
     static ref DEFAULT_JVM_ARGS: Vec<String> = vec!["-Xms4G".to_string(), "-Xmx4G".to_string()];
     static ref DEFAULT_SERVER_ARGS: Vec<String> = vec!["--nogui".to_string()];
@@ -121,6 +123,102 @@ impl InstanceSettings {
         ))?;
 
         Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct InstanceMeta {
+    pub id: VersionNumber,
+    pub files: Vec<PathBuf>,
+    pub jre: u8, // String?
+}
+
+impl InstanceMeta {
+    pub fn new(id: VersionNumber, jre: u8) -> Self {
+        Self {
+            id,
+            files: Vec::new(),
+            jre,
+        }
+    }
+
+    pub fn add_file(&mut self, file: &PathBuf) {
+        self.files.push(file.clone());
+    }
+
+    pub fn remove_file(&mut self, file: &PathBuf) {
+        self.files.retain(|f| f != file);
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct AppMeta {
+    pub instances: Vec<InstanceMeta>,
+    pub installed_jres: Vec<u8>, // String?
+}
+
+impl Default for AppMeta {
+    fn default() -> Self {
+        Self {
+            instances: Vec::new(),
+            installed_jres: Vec::new(),
+        }
+    }
+}
+
+impl AppMeta {
+    pub async fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref();
+        let mut file = fs::File::open(path)
+            .await
+            .wrap_err(format!("Error reading meta at {}", path.display()))?;
+
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)
+            .await
+            .wrap_err(format!("Error reading meta at {}", path.display()))?;
+
+        let meta: AppMeta = toml::from_str(&contents)?;
+
+        Ok(meta)
+    }
+
+    pub async fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let path = path.as_ref();
+        fs::create_dir_all(path.parent().expect("infallible")).await?;
+        let mut file = fs::File::create(path)
+            .await
+            .wrap_err(format!("Error creating meta file at {}", path.display()))?;
+
+        let mut contents = String::new();
+        contents.push_str(&toml::to_string(self)?);
+
+        file.write_all(contents.as_bytes())
+            .await
+            .wrap_err(format!("Error writing meta to file at {}", path.display()))?;
+
+        Ok(())
+    }
+
+    pub async fn read_or_create<P: AsRef<Path>>(path: P) -> Self {
+        let path = path.as_ref();
+        if let Ok(meta) = Self::from_file(path).await {
+            meta
+        } else {
+            let meta = Self::default();
+            meta.save(path).await.expect("Error saving meta"); // TODO: handle error
+            meta
+        }
+    }
+
+    pub fn add_instance(&mut self, instance: InstanceMeta) {
+        self.instances.push(instance);
+    }
+
+    pub fn add_jre(&mut self, jre: u8) {
+        if !self.installed_jres.contains(&jre) {
+            self.installed_jres.push(jre);
+        }
     }
 }
 
