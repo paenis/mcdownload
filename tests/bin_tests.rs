@@ -6,7 +6,7 @@ fn test_help() {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
     cmd.arg("--help");
     cmd.assert().success().stdout(predicate::str::contains(
-        "A tool for managing Minecraft versions",
+        "A tool for managing Minecraft server versions",
     ));
 }
 
