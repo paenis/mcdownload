@@ -102,8 +102,8 @@ jobs:
         with: 
           name: ${{ matrix.build }}-debug
           path: |
-            ${{ env.TARGET_DIR }}/debug/mcdownload*
-            !${{ env.TARGET_DIR }}/debug/mcdownload.d
+            ${{ env.TARGET_DIR }}/debug/mcdl*
+            !${{ env.TARGET_DIR }}/debug/mcdl.d
           retention-days: 7
 
   trigger_build:
