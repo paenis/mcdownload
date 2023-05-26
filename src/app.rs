@@ -14,6 +14,7 @@ use tokio::fs;
 use tokio::process::Command;
 use tokio::task::JoinSet;
 
+use crate::common::REQWEST_CLIENT;
 use crate::types::meta::InstanceSettings;
 use crate::types::version::{GameVersion, VersionMetadata, VersionNumber};
 use crate::utils::net::{download_jre, get_version_metadata};
@@ -72,7 +73,14 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
                 .clone();
 
             pb_server.set_message("Downloading server jar...");
-            let server_jar = reqwest::get(url).await?.bytes().await?;
+            let server_jar = REQWEST_CLIENT
+                .get(url)
+                .send()
+                .await
+                .wrap_err("Failed to download server jar")?
+                .bytes()
+                .await
+                .wrap_err("Failed to read server jar to bytes")?;
 
             // write to disk
             pb_server.set_message("Writing server jar to disk...");
@@ -229,8 +237,7 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
                 std::fs::read_to_string(latest.path()).wrap_err("Failed to read crash report")?;
 
             // upload to mclo.gs
-            let client = reqwest::Client::new();
-            let response = client
+            let response = REQWEST_CLIENT
                 .post("https://api.mclo.gs/1/log")
                 .form(&[("content", content)])
                 .send()

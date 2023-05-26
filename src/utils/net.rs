@@ -8,6 +8,7 @@ use lazy_static::lazy_static;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
+use crate::common::REQWEST_CLIENT;
 use crate::types::net::CachedResponse;
 use crate::types::version::{GameVersion, GameVersionList, VersionMetadata};
 
@@ -53,7 +54,7 @@ where T: Serialize + for<'de> Deserialize<'de> {
         }
     }
 
-    let response: T = reqwest::get(url).await?.json().await?;
+    let response: T = REQWEST_CLIENT.get(url).send().await?.json().await?;
 
     let cached_response = CachedResponse::new(
         &response,
@@ -77,7 +78,7 @@ pub(crate) async fn download_jre(major_version: &u8) -> Result<Bytes> {
         vendor = "eclipse",
     );
 
-    let response = reqwest::get(&url).await?;
+    let response = REQWEST_CLIENT.get(&url).send().await?;
 
     match response.status() {
         StatusCode::TEMPORARY_REDIRECT | StatusCode::OK => Ok(response.bytes().await?),

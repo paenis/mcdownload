@@ -2,6 +2,7 @@
 name = "mcdl"
 version = "0.2.0"
 authors = ["paenis <46578974+paenis@users.noreply.github.com>"]
+homepage = "https://github.com/paenis/mcdownload"
 edition = "2021"
 build = "build.rs"
 
