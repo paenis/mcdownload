@@ -145,8 +145,8 @@ impl InstanceMeta {
         }
     }
 
-    pub fn add_file(&mut self, file: &PathBuf) {
-        self.files.push(file.clone());
+    pub fn add_file(&mut self, file: &Path) {
+        self.files.push(file.to_path_buf());
     }
 
     pub fn remove_file(&mut self, file: &PathBuf) {
@@ -154,20 +154,11 @@ impl InstanceMeta {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub(crate) struct AppMeta {
     // keyed by id for now, possibly changed later to allow for multiple instances with the same version
     pub instances: HashMap<String, InstanceMeta>,
     pub installed_jres: Vec<u8>, // String?
-}
-
-impl Default for AppMeta {
-    fn default() -> Self {
-        Self {
-            instances: HashMap::new(),
-            installed_jres: Vec::new(),
-        }
-    }
 }
 
 impl AppMeta {

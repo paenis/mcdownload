@@ -343,7 +343,7 @@ fn extract_jre(jre: Bytes, jre_dir: &PathBuf) -> Result<()> {
 
     use zip::ZipArchive;
 
-    std::fs::create_dir_all(&jre_dir).wrap_err(format!(
+    std::fs::create_dir_all(jre_dir).wrap_err(format!(
         "Failed to create directory for JRE: {path}",
         path = jre_dir.display()
     ))?;
