@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
-use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use color_eyre::eyre::{Result, WrapErr};
@@ -200,8 +199,24 @@ impl AppMeta {
         self.instances.insert(instance.id.to_string(), instance);
     }
 
+    pub fn remove_instance(&mut self, id: &String) -> Option<InstanceMeta> {
+        self.instances.remove(id)
+    }
+
+    pub fn instance_installed(&self, id: &String) -> bool {
+        self.instances.contains_key(id)
+    }
+
     pub fn add_jre(&mut self, jre: u8) -> bool {
         self.installed_jres.insert(jre)
+    }
+
+    pub fn remove_jre(&mut self, jre: &u8) -> bool {
+        self.installed_jres.remove(jre)
+    }
+
+    pub fn jre_installed(&self, jre: &u8) -> bool {
+        self.installed_jres.contains(jre)
     }
 }
 

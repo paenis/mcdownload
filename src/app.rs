@@ -38,6 +38,12 @@ lazy_static! {
     .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏-");
 }
 
+macro_rules! META {
+    () => {
+        META.clone().lock()
+    };
+}
+
 // ideally there is one public function for each subcommand
 
 pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> {
@@ -66,11 +72,8 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
             let instance_dir = INSTANCE_BASE_DIR.join(version_meta.id.to_string());
 
-            if META
-                .lock()
-                .instances
-                .contains_key(&version_meta.id.to_string())
-            {
+            // only necessary while there is one instance per version
+            if META.lock().instance_installed(&version_meta.id.to_string()) {
                 pb_server.finish_with_message("Cancelled (already installed)");
                 return Ok::<(), eyre::Report>(());
             }
@@ -129,9 +132,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
         });
 
         // if the JRE is already installed, skip it
-        if META.clone().lock().installed_jres.contains(&jre_version)
-            || jres_installed.contains(&jre_version)
-        {
+        if META!().jre_installed(&jre_version) || jres_installed.contains(&jre_version) {
             continue;
         } else {
             jres_installed.push(jre_version);
@@ -168,7 +169,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     let jre_dir = JRE_BASE_DIR.join(major_version.to_string());
 
-    if META.clone().lock().installed_jres.contains(major_version) {
+    if META!().jre_installed(major_version) {
         pb.finish_with_message("Cancelled (already installed)");
         return Ok(());
     }
@@ -181,8 +182,8 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     extract_jre(jre, &jre_dir).wrap_err(format!("Failed to extract JRE"))?;
 
     pb.set_message("Updating metadata...");
-    META.clone().lock().add_jre(*major_version);
-    META.clone().lock().save(META_PATH.as_path())?;
+    META!().add_jre(*major_version);
+    META!().save(META_PATH.as_path())?;
 
     pb.finish_with_message("Done!");
 
@@ -202,7 +203,7 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
     // check if the JRE is installed and install it if not
     let jre_version = settings.java.version;
 
-    if !META.clone().lock().installed_jres.contains(&jre_version) {
+    if !META!().jre_installed(&jre_version) {
         let pb = ProgressBar::new_spinner();
         pb.set_style(PB_STYLE.clone());
         pb.set_prefix(format!("JRE {jre_version} for {id}"));
@@ -211,8 +212,7 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
         install_jre(&jre_version, &pb).await?;
 
         // update the instance metadata
-        META.clone()
-            .lock()
+        META!()
             .instances
             .get_mut(&id.to_string())
             .ok_or_else(|| eyre!("Instance metadata not found for {id}"))?
