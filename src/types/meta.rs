@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use color_eyre::eyre::{Result, WrapErr};
@@ -153,14 +154,15 @@ impl InstanceMeta {
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct AppMeta {
-    pub instances: Vec<InstanceMeta>,
+    // keyed by id for now, possibly changed later to allow for multiple instances with the same version
+    pub instances: HashMap<String, InstanceMeta>,
     pub installed_jres: Vec<u8>, // String?
 }
 
 impl Default for AppMeta {
     fn default() -> Self {
         Self {
-            instances: Vec::new(),
+            instances: HashMap::new(),
             installed_jres: Vec::new(),
         }
     }
@@ -212,7 +214,7 @@ impl AppMeta {
     }
 
     pub fn add_instance(&mut self, instance: InstanceMeta) {
-        self.instances.push(instance);
+        self.instances.insert(instance.id.to_string(), instance);
     }
 
     pub fn add_jre(&mut self, jre: u8) {
