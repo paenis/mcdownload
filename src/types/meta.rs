@@ -97,7 +97,8 @@ impl InstanceSettings {
             .await
             .wrap_err(format!("Error reading settings at {}", path.display()))?;
 
-        let settings: InstanceSettings = toml::from_str(&contents)?;
+        let settings: InstanceSettings = toml::from_str(&contents)
+            .wrap_err(format!("Error parsing settings at {}", path.display()))?;
 
         Ok(settings)
     }

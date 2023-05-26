@@ -8,9 +8,9 @@ use lazy_static::lazy_static;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
+use crate::common::REQWEST_CLIENT;
 use crate::types::net::CachedResponse;
 use crate::types::version::{GameVersion, GameVersionList, VersionMetadata};
-use crate::common::REQWEST_CLIENT;
 
 lazy_static! {
     static ref PROJ_DIRS: ProjectDirs =
