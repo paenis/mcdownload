@@ -28,7 +28,7 @@ lazy_static! {
     static ref INSTANCE_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("instance");
     static ref JRE_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("jre");
     static ref INSTANCE_SETTINGS_BASE_DIR: PathBuf = PROJ_DIRS.config_local_dir().join("instance");
-    static ref META_PATH: PathBuf = PROJ_DIRS.data_local_dir().join("meta.toml");
+    static ref META_PATH: PathBuf = PROJ_DIRS.data_local_dir().join("meta.mpk");
     static ref META: Arc<Mutex<AppMeta>> =
         Arc::new(Mutex::new(AppMeta::read_or_create(META_PATH.as_path())));
     static ref PB_STYLE: ProgressStyle = ProgressStyle::with_template(
@@ -66,7 +66,11 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
             let instance_dir = INSTANCE_BASE_DIR.join(version_meta.id.to_string());
 
-            if META.lock().instances.contains_key(&version_meta.id.to_string()) {
+            if META
+                .lock()
+                .instances
+                .contains_key(&version_meta.id.to_string())
+            {
                 pb_server.finish_with_message("Cancelled (already installed)");
                 return Ok::<(), eyre::Report>(());
             }
@@ -177,7 +181,7 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     extract_jre(jre, &jre_dir).wrap_err(format!("Failed to extract JRE"))?;
 
     pb.set_message("Updating metadata...");
-    META.clone().lock().installed_jres.push(*major_version);
+    META.clone().lock().add_jre(*major_version);
     META.clone().lock().save(META_PATH.as_path())?;
 
     pb.finish_with_message("Done!");
@@ -197,15 +201,22 @@ pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
 
     // check if the JRE is installed and install it if not
     let jre_version = settings.java.version;
-    let jre_dir = JRE_BASE_DIR.join(jre_version.to_string());
 
-    if !jre_dir.exists() {
+    if !META.clone().lock().installed_jres.contains(&jre_version) {
         let pb = ProgressBar::new_spinner();
         pb.set_style(PB_STYLE.clone());
         pb.set_prefix(format!("JRE {jre_version} for {id}"));
         pb.enable_steady_tick(Duration::from_millis(100));
 
         install_jre(&jre_version, &pb).await?;
+
+        // update the instance metadata
+        META.clone()
+            .lock()
+            .instances
+            .get_mut(&id.to_string())
+            .ok_or_else(|| eyre!("Instance metadata not found for {id}"))?
+            .jre = jre_version;
     }
 
     let java_path = get_java_path(jre_version);

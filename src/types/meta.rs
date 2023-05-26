@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
@@ -129,7 +129,7 @@ impl InstanceSettings {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct InstanceMeta {
     pub id: VersionNumber,
     pub files: Vec<PathBuf>,
@@ -154,24 +154,22 @@ impl InstanceMeta {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub(crate) struct AppMeta {
     // keyed by id for now, possibly changed later to allow for multiple instances with the same version
     pub instances: HashMap<String, InstanceMeta>,
-    pub installed_jres: Vec<u8>, // String?
+    pub installed_jres: HashSet<u8>, // String?
 }
 
 impl AppMeta {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        let mut file = std::fs::File::open(path)
-            .wrap_err(format!("Error reading meta at {}", path.display()))?;
 
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)
-            .wrap_err(format!("Error reading meta at {}", path.display()))?;
+        let data =
+            std::fs::read(path).wrap_err(format!("Error reading meta at {}", path.display()))?;
 
-        let meta: AppMeta = toml::from_str(&contents)?;
+        let meta: AppMeta = rmp_serde::from_slice(&data)
+            .wrap_err(format!("Error parsing meta at {}", path.display()))?;
 
         Ok(meta)
     }
@@ -179,14 +177,10 @@ impl AppMeta {
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let path = path.as_ref();
         std::fs::create_dir_all(path.parent().expect("infallible"))?;
-        let mut file = std::fs::File::create(path)
-            .wrap_err(format!("Error creating meta file at {}", path.display()))?;
+        let data = rmp_serde::to_vec(self)
+            .wrap_err(format!("Error serializing meta at {}", path.display()))?;
 
-        let mut contents = String::new();
-        contents.push_str(&toml::to_string(self)?);
-
-        file.write_all(contents.as_bytes())
-            .wrap_err(format!("Error writing meta to file at {}", path.display()))?;
+        std::fs::write(path, data).wrap_err(format!("Error writing meta at {}", path.display()))?;
 
         Ok(())
     }
@@ -206,10 +200,8 @@ impl AppMeta {
         self.instances.insert(instance.id.to_string(), instance);
     }
 
-    pub fn add_jre(&mut self, jre: u8) {
-        if !self.installed_jres.contains(&jre) {
-            self.installed_jres.push(jre);
-        }
+    pub fn add_jre(&mut self, jre: u8) -> bool {
+        self.installed_jres.insert(jre)
     }
 }
 
