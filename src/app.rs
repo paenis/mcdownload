@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::Bytes;
@@ -10,12 +11,13 @@ use directories::ProjectDirs;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
+use parking_lot::Mutex;
 use tokio::fs;
 use tokio::process::Command;
 use tokio::task::JoinSet;
 
 use crate::common::REQWEST_CLIENT;
-use crate::types::meta::InstanceSettings;
+use crate::types::meta::{AppMeta, InstanceMeta, InstanceSettings};
 use crate::types::version::{GameVersion, VersionMetadata, VersionNumber};
 use crate::utils::net::{download_jre, get_version_metadata};
 
@@ -26,6 +28,9 @@ lazy_static! {
     static ref INSTANCE_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("instance");
     static ref JRE_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("jre");
     static ref INSTANCE_SETTINGS_BASE_DIR: PathBuf = PROJ_DIRS.config_local_dir().join("instance");
+    static ref META_PATH: PathBuf = PROJ_DIRS.data_local_dir().join("meta.toml");
+    static ref META: Arc<Mutex<AppMeta>> =
+        Arc::new(Mutex::new(AppMeta::read_or_create(META_PATH.as_path())));
     static ref PB_STYLE: ProgressStyle = ProgressStyle::with_template(
         "{prefix:.bold.blue.bright} {spinner:.green.bright} {wide_msg}",
     )
@@ -42,6 +47,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
     let mut jres_installed: Vec<u8> = Vec::new();
 
     for version in versions {
+        let cloned_meta = META.clone();
         let pb_server = bars.add(ProgressBar::new_spinner());
         pb_server.set_style(PB_STYLE.clone());
         pb_server.set_prefix(format!("{}", version.id));
@@ -60,7 +66,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
             let instance_dir = INSTANCE_BASE_DIR.join(version_meta.id.to_string());
 
-            if instance_dir.exists() {
+            if META.lock().instances.contains_key(&version_meta.id.to_string()) {
                 pb_server.finish_with_message("Cancelled (already installed)");
                 return Ok::<(), eyre::Report>(());
             }
@@ -99,17 +105,29 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
             // write settings
             pb_server.set_message("Writing settings...");
             let settings = InstanceSettings::new(jre_version);
+            let settings_path =
+                INSTANCE_SETTINGS_BASE_DIR.join(format!("{}.toml", version_meta.id));
 
-            settings
-                .save(INSTANCE_SETTINGS_BASE_DIR.join(format!("{}.toml", version_meta.id)))
-                .await?;
+            settings.save(&settings_path).await?;
+
+            // update meta
+            pb_server.set_message("Updating metadata...");
+            let mut instance_meta = InstanceMeta::new(version_meta.id, jre_version);
+            instance_meta.add_file(&instance_dir);
+            instance_meta.add_file(&settings_path);
+
+            let mut meta = cloned_meta.lock();
+            meta.add_instance(instance_meta);
+            meta.save(META_PATH.as_path())?;
 
             pb_server.finish_with_message("Done!");
             Ok::<(), eyre::Report>(())
         });
 
         // if the JRE is already installed, skip it
-        if jres_installed.contains(&jre_version) {
+        if META.clone().lock().installed_jres.contains(&jre_version)
+            || jres_installed.contains(&jre_version)
+        {
             continue;
         } else {
             jres_installed.push(jre_version);
@@ -146,7 +164,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     let jre_dir = JRE_BASE_DIR.join(major_version.to_string());
 
-    if jre_dir.exists() {
+    if META.clone().lock().installed_jres.contains(major_version) {
         pb.finish_with_message("Cancelled (already installed)");
         return Ok(());
     }
@@ -157,6 +175,10 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     pb.set_message("Extracting JRE...");
 
     extract_jre(jre, &jre_dir).wrap_err(format!("Failed to extract JRE"))?;
+
+    pb.set_message("Updating metadata...");
+    META.clone().lock().installed_jres.push(*major_version);
+    META.clone().lock().save(META_PATH.as_path())?;
 
     pb.finish_with_message("Done!");
 

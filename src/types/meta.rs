@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use color_eyre::eyre::{Result, WrapErr};
@@ -170,15 +171,13 @@ impl Default for AppMeta {
 }
 
 impl AppMeta {
-    pub async fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        let mut file = fs::File::open(path)
-            .await
+        let mut file = std::fs::File::open(path)
             .wrap_err(format!("Error reading meta at {}", path.display()))?;
 
         let mut contents = String::new();
         file.read_to_string(&mut contents)
-            .await
             .wrap_err(format!("Error reading meta at {}", path.display()))?;
 
         let meta: AppMeta = toml::from_str(&contents)?;
@@ -186,30 +185,28 @@ impl AppMeta {
         Ok(meta)
     }
 
-    pub async fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let path = path.as_ref();
-        fs::create_dir_all(path.parent().expect("infallible")).await?;
-        let mut file = fs::File::create(path)
-            .await
+        std::fs::create_dir_all(path.parent().expect("infallible"))?;
+        let mut file = std::fs::File::create(path)
             .wrap_err(format!("Error creating meta file at {}", path.display()))?;
 
         let mut contents = String::new();
         contents.push_str(&toml::to_string(self)?);
 
         file.write_all(contents.as_bytes())
-            .await
             .wrap_err(format!("Error writing meta to file at {}", path.display()))?;
 
         Ok(())
     }
 
-    pub async fn read_or_create<P: AsRef<Path>>(path: P) -> Self {
+    pub fn read_or_create<P: AsRef<Path>>(path: P) -> Self {
         let path = path.as_ref();
-        if let Ok(meta) = Self::from_file(path).await {
+        if let Ok(meta) = Self::from_file(path) {
             meta
         } else {
             let meta = Self::default();
-            meta.save(path).await.expect("Error saving meta"); // TODO: handle error
+            meta.save(path).expect("Error saving meta"); // TODO: handle error
             meta
         }
     }
