@@ -139,7 +139,6 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
 
     let cli = Cli::parse();
-    dbg!(&cli);
 
     match cli.action {
         Action::List { filter } => list_impl(filter).await?,
