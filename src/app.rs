@@ -190,11 +190,11 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn run_version(id: VersionNumber) -> Result<()> {
+pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
     let instance_path = INSTANCE_BASE_DIR.join(id.to_string());
 
-    if !instance_path.exists() {
-        return Err(eyre!("Version {id} is not installed"));
+    if !META!().instance_installed(&id.to_string()) {
+        return Err(eyre!("Instance `{id}` does not exist"));
     }
 
     let settings =

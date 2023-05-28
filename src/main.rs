@@ -247,7 +247,7 @@ async fn main() -> Result<()> {
             .parse()
             .expect("infallible");
 
-        app::run_version(version)
+        app::run_instance(version)
             .await
             .wrap_err("Error while running server")?;
     } else if let Some(matches) = matches.subcommand_matches("locate") {
