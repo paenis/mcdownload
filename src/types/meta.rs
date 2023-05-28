@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -8,6 +9,8 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+use crate::types::version::VersionNumber;
 
 lazy_static! {
     static ref DEFAULT_JVM_ARGS: Vec<String> = vec!["-Xms4G".to_string(), "-Xmx4G".to_string()];
@@ -98,7 +101,8 @@ impl InstanceSettings {
             .await
             .wrap_err(format!("Error reading settings at {}", path.display()))?;
 
-        let settings: InstanceSettings = toml::from_str(&contents)?;
+        let settings: InstanceSettings = toml::from_str(&contents)
+            .wrap_err(format!("Error parsing settings at {}", path.display()))?;
 
         Ok(settings)
     }
@@ -143,6 +147,98 @@ impl FromStr for ServerType {
             "forge" => Ok(ServerType::Forge),
             _ => Err(format!("Invalid server type: {}", s)),
         }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct InstanceMeta {
+    pub id: VersionNumber,
+    pub files: Vec<PathBuf>,
+    pub jre: u8, // String?
+}
+
+impl InstanceMeta {
+    pub fn new(id: VersionNumber, jre: u8) -> Self {
+        Self {
+            id,
+            files: Vec::new(),
+            jre,
+        }
+    }
+
+    pub fn add_file(&mut self, file: &Path) {
+        self.files.push(file.to_path_buf());
+    }
+
+    pub fn remove_file(&mut self, file: &PathBuf) {
+        self.files.retain(|f| f != file);
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub(crate) struct AppMeta {
+    // keyed by id for now, possibly changed later to allow for multiple instances with the same version
+    pub instances: HashMap<String, InstanceMeta>,
+    pub installed_jres: HashSet<u8>, // String?
+}
+
+impl AppMeta {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref();
+
+        let data =
+            std::fs::read(path).wrap_err(format!("Error reading meta at {}", path.display()))?;
+
+        let meta: AppMeta = rmp_serde::from_slice(&data)
+            .wrap_err(format!("Error parsing meta at {}", path.display()))?;
+
+        Ok(meta)
+    }
+
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let path = path.as_ref();
+        std::fs::create_dir_all(path.parent().expect("infallible"))?;
+        let data = rmp_serde::to_vec(self)
+            .wrap_err(format!("Error serializing meta at {}", path.display()))?;
+
+        std::fs::write(path, data).wrap_err(format!("Error writing meta at {}", path.display()))?;
+
+        Ok(())
+    }
+
+    pub fn read_or_create<P: AsRef<Path>>(path: P) -> Self {
+        let path = path.as_ref();
+        if let Ok(meta) = Self::from_file(path) {
+            meta
+        } else {
+            let meta = Self::default();
+            meta.save(path).expect("Error saving meta"); // TODO: handle error
+            meta
+        }
+    }
+
+    pub fn add_instance(&mut self, instance: InstanceMeta) {
+        self.instances.insert(instance.id.to_string(), instance);
+    }
+
+    pub fn remove_instance(&mut self, id: &String) -> Option<InstanceMeta> {
+        self.instances.remove(id)
+    }
+
+    pub fn instance_installed(&self, id: &String) -> bool {
+        self.instances.contains_key(id)
+    }
+
+    pub fn add_jre(&mut self, jre: u8) -> bool {
+        self.installed_jres.insert(jre)
+    }
+
+    pub fn remove_jre(&mut self, jre: &u8) -> bool {
+        self.installed_jres.remove(jre)
+    }
+
+    pub fn jre_installed(&self, jre: &u8) -> bool {
+        self.installed_jres.contains(jre)
     }
 }
 

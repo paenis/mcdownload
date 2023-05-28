@@ -4,6 +4,7 @@
 #![warn(rustdoc::all)]
 
 pub(crate) mod app;
+pub(crate) mod common;
 pub(crate) mod types;
 pub(crate) mod utils;
 
@@ -12,25 +13,10 @@ use clap::{arg, command, value_parser, ArgAction, ArgGroup, Command};
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use is_terminal::IsTerminal;
 use itertools::Itertools;
-use lazy_static::lazy_static;
 
+use crate::common::MCDL_VERSION;
 use crate::types::version::{GameVersion, VersionNumber};
 use crate::utils::net::get_version_manifest;
-
-lazy_static! {
-    static ref MCDL_VERSION: String = format!(
-        "{crate_}{debug}+git.{branch}/{sha}",
-        crate_ = env!("CARGO_PKG_VERSION"),
-        branch = env!("VERGEN_GIT_BRANCH"),
-        sha = env!("VERGEN_GIT_SHA"),
-        debug = {
-            match env!("VERGEN_CARGO_OPT_LEVEL") {
-                "1" => "-debug",
-                _ => "",
-            }
-        }
-    );
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
