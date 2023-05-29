@@ -304,13 +304,13 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
 
 pub(crate) fn locate(what: &String) -> Result<()> {
     match what.as_str() {
-        "jre" | "java" => {
+        "java" => {
             println!("JRE base directory: {}", JRE_BASE_DIR.display());
         }
-        "instances" | "versions" | "server" => {
+        "instance" => {
             println!("Instance base directory: {}", INSTANCE_BASE_DIR.display());
         }
-        "config" | "settings" => {
+        "config" => {
             println!(
                 "Instance settings base directory: {}",
                 INSTANCE_SETTINGS_BASE_DIR.display()
