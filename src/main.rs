@@ -197,11 +197,8 @@ async fn list_impl(filter: Option<ListFilter>) -> Result<()> {
             Cell::new(&version.id.to_string()),
             Cell::new(&version.release_type.to_string()).style_spec(
                 match version.release_type.as_str() {
-                    "release" => "FG",
-                    "snapshot" => "FY",
-                    "old_beta" => "FB",
-                    "old_alpha" => "FR",
-                    _ => unreachable!(),
+                    "release" => "Fgb",
+                    _ => "",
                 },
             ),
             Cell::new(&version.release_time.to_string()),
