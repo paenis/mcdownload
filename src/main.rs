@@ -73,7 +73,9 @@ enum Action {
     },
     /// Run a server instance
     Run {
+        #[arg(required = true)]
         #[arg(short, long)]
+        /// The version to run
         version: String, // in the future, `name` will be used instead
     },
     /// Print the path to a config file or instance directory
@@ -146,6 +148,7 @@ async fn main() -> Result<()> {
         Action::Install { version } => install_impl(version).await?,
         Action::Run { version } => run_impl(version).await?,
         Action::Locate { what } => locate_impl(what)?,
+        // Action::Uninstall { version } => uninstall_impl(version).await?,
     }
 
     Ok(())
@@ -326,4 +329,8 @@ fn locate_impl(what: WhatEnum) -> Result<()> {
     app::locate(&what).wrap_err(format!("Error while locating `{what}`"))?;
 
     Ok(())
+}
+
+async fn uninstall_impl(version: impl Sized) -> Result<()> {
+    todo!()
 }
