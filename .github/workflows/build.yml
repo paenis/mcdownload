@@ -18,7 +18,7 @@ jobs:
         build:
           [linux-nightly, linux-nightly-aarch64, win-msvc]
         profile:
-          [release, release-nodebug] 
+          [release, release-small] 
         include:
           # - build: linux-stable
           #   os: ubuntu-22.04
