@@ -22,11 +22,11 @@ cargo install --git https://github.com/paenis/mcdownload
 - [ ] types/meta
   - [ ] `Settings` struct
     - [ ] global default java flags (maybe)
-  - [ ] manifest [#3][pull-3]
+  - [x] manifest [#3][pull-3]
 - [ ] main
   - [ ] alternative outputs (JSON/debug/etc.) for info/list commands
   - [ ] `-i`/`--installed` filter for list command
-    - [ ] likely depends on [#3][pull-3]
+    - [x] likely depends on [#3][pull-3]
   - [ ] `tracing_error` for `eyre`, maybe
   - [ ] third-party servers (fabric, forge, etc.) [#1][pull-1]
 - [ ] types/version
@@ -34,3 +34,9 @@ cargo install --git https://github.com/paenis/mcdownload
 
 [pull-1]: https://github.com/paenis/mcdownload/pull/1
 [pull-3]: https://github.com/paenis/mcdownload/pull/3
+
+---
+
+By using this software, you agree to the [Minecraft EULA][eula].
+
+[eula]: https://www.minecraft.net/en-us/eula

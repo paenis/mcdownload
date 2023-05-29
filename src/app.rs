@@ -109,6 +109,12 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
                     version_meta.id
                 ))?;
 
+            // write eula
+            pb_server.set_message("Writing eula.txt...");
+            fs::write(instance_dir.join("eula.txt"), "eula=true")
+                .await
+                .wrap_err(format!("Failed to write eula.txt for {}", version_meta.id))?;
+
             // write settings
             pb_server.set_message("Writing settings...");
             let settings = InstanceSettings::new(jre_version);
@@ -443,23 +449,9 @@ fn extract_jre(_jre: &Bytes, _jre_dir: &PathBuf) -> Result<()> {
     Err(eyre!("Unsupported OS"))
 }
 
-#[cfg(windows)]
 fn get_java_path(version: u8) -> PathBuf {
     JRE_BASE_DIR
         .join(version.to_string())
         .join("bin")
-        .join("java.exe")
-}
-
-#[cfg(target_os = "linux")]
-fn get_java_path(version: u8) -> PathBuf {
-    JRE_BASE_DIR
-        .join(version.to_string())
-        .join("bin")
-        .join("java")
-}
-
-#[cfg(not(any(windows, target_os = "linux")))]
-fn get_java_path(_version: u8) -> PathBuf {
-    panic!("Unsupported OS")
+        .join(format!("java{}", std::env::consts::EXE_SUFFIX))
 }
