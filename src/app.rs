@@ -343,6 +343,7 @@ mod tests {
         install_jre(&8, &ProgressBar::hidden()).await.unwrap();
 
         assert!(get_java_path(8).exists(), "{:?}", get_java_path(8));
+        assert!(META!().remove_jre(&8), "Failed to remove JRE");
     }
 }
 

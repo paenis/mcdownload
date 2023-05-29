@@ -266,7 +266,7 @@ async fn install_impl(version: Option<Vec<VersionNumber>>) -> Result<()> {
             .exit();
     }
 
-    let (valid, invalid): (Vec<_>, Vec<_>) = version.iter().partition(|v| version_ids.contains(&v));
+    let (valid, invalid): (Vec<_>, Vec<_>) = version.iter().partition(|v| version_ids.contains(v));
 
     if valid.is_empty() {
         Cli::command()

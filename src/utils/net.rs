@@ -96,7 +96,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_version_manifest() {
         let manifest = get_version_manifest().await.unwrap();
-        assert!(manifest.versions.len() > 0);
+        assert!(!manifest.versions.is_empty());
     }
 
     #[cfg(not(feature = "_cross"))]
@@ -111,6 +111,6 @@ mod tests {
     #[tokio::test]
     async fn test_download_jre() {
         let jre = download_jre(&8).await.unwrap();
-        assert!(jre.len() > 0);
+        assert!(!jre.is_empty());
     }
 }
