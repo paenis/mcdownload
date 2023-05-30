@@ -9,8 +9,9 @@ pub(crate) mod types;
 pub(crate) mod utils;
 
 use async_once::AsyncOnce;
+use clap::builder::NonEmptyStringValueParser;
 use clap::error::ErrorKind;
-use clap::{arg, command, value_parser, Args, CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{arg, command, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use color_eyre::eyre::{eyre, Result, WrapErr};
 use is_terminal::IsTerminal;
 use itertools::Itertools;
@@ -54,14 +55,14 @@ enum Action {
     },
     /// Get information about a Minecraft version
     Info {
-        #[arg(required = true, value_parser = value_parser!(VersionNumber))]
+        #[arg(required = true, value_parser = |s: &str| validate_version_number(s))]
         #[arg(short, long)]
         /// The Minecraft version to get information about
         version: VersionNumber,
     },
     /// Install a server instance
     Install {
-        #[arg(value_delimiter = ',', num_args = 0.., value_parser = value_parser!(VersionNumber))]
+        #[arg(value_delimiter = ',', num_args = 0.., value_parser = |s: &str| validate_version_number(s))]
         #[arg(short, long)]
         /// The version(s) to install
         ///
@@ -73,7 +74,7 @@ enum Action {
     },
     /// Run a server instance
     Run {
-        #[arg(required = true)]
+        #[arg(required = true, value_parser = NonEmptyStringValueParser::new())]
         #[arg(short, long)]
         /// The version to run
         version: String, // in the future, `name` will be used instead
@@ -87,6 +88,7 @@ enum Action {
     },
     // /// Uninstall a server instance
     // Uninstall {
+    //     #[arg(required = true, value_parser = NonEmptyStringValueParser::new())]
     //     #[arg(short, long)]
     //     version: String, // in the future, `name` will be used instead
     // },
@@ -136,11 +138,34 @@ enum WhatEnum {
     Config,
 }
 
+fn validate_version_number(v: &str) -> Result<VersionNumber> {
+    // lol
+    let valid_versions: Vec<VersionNumber> =
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            MANIFEST
+                .get()
+                .await
+                .versions
+                .iter()
+                .map(|v| v.id.clone())
+                .collect()
+        });
+
+    let version = v.parse()?;
+
+    if valid_versions.contains(&version) {
+        Ok(version)
+    } else {
+        Err(eyre!("Version does not exist"))
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let cli = Cli::parse();
+    // lol again
+    let cli = tokio::task::spawn_blocking(|| Cli::parse()).await?;
 
     match cli.action {
         Action::List { filter } => list_impl(filter).await?,
@@ -213,45 +238,36 @@ async fn list_impl(filter: Option<ListFilter>) -> Result<()> {
 }
 
 async fn info_impl(version: VersionNumber) -> Result<()> {
-    let game_version = MANIFEST
+    let version = MANIFEST
         .get()
         .await
         .versions
         .iter()
-        .find(|v| v.id == version);
+        .find(|v| v.id == version)
+        .expect("infallible");
 
-    if let Some(version) = game_version {
-        let time_format = "%-d %B %Y at %-I:%M:%S%P UTC";
-        let message = format!(
-            "Version {} ({})\nReleased: {}\nLast updated: {}",
-            version.id,
-            version.release_type,
-            version.release_time.format(time_format),
-            version.time.format(time_format),
-        );
+    let time_format = "%-d %B %Y at %-I:%M:%S%P UTC";
+    let message = format!(
+        "Version {} ({})\nReleased: {}\nLast updated: {}",
+        version.id,
+        version.release_type,
+        version.release_time.format(time_format),
+        version.time.format(time_format),
+    );
 
-        println!("{message}");
-    } else {
-        Cli::command()
-            .error(
-                ErrorKind::ValueValidation,
-                format!("No such version: {version}"),
-            )
-            .exit();
-    }
+    println!("{message}");
 
     Ok(())
 }
 
-async fn install_impl(version: Option<Vec<VersionNumber>>) -> Result<()> {
+async fn install_impl(versions: Option<Vec<VersionNumber>>) -> Result<()> {
     let manifest = MANIFEST.get().await;
-    let versions = &manifest.versions;
-    let version_ids = versions.iter().map(|v| &v.id).collect_vec();
+    let game_versions = &manifest.versions;
     let latest = &manifest.latest;
 
-    if version.is_none() {
+    if versions.is_none() {
         println!("Installing latest release version\n");
-        let latest = versions
+        let latest = game_versions
             .iter()
             .find(|v| v.id == latest.release)
             .ok_or_else(|| eyre!("No latest release version found"))?;
@@ -262,45 +278,23 @@ async fn install_impl(version: Option<Vec<VersionNumber>>) -> Result<()> {
         return Ok(());
     }
 
-    let version = version.unwrap();
-    if version.is_empty() {
+    let versions = versions.unwrap();
+    if versions.is_empty() {
         Cli::command()
             .error(ErrorKind::ValueValidation, "No version provided")
             .exit();
     }
 
-    let (valid, invalid): (Vec<_>, Vec<_>) = version.iter().partition(|v| version_ids.contains(v));
-
-    if valid.is_empty() {
-        Cli::command()
-            .error(
-                ErrorKind::ValueValidation,
-                format!("No valid versions found (got {})", invalid.len()),
-            )
-            .exit();
-    }
-
-    let mut message = format!(
-        "Installing {} version{}: {}",
-        valid.len(),
-        if valid.len() == 1 { "" } else { "s" },
-        valid.iter().map(ToString::to_string).join(", ")
+    println!(
+        "Installing {} version{}: {}\n",
+        versions.len(),
+        if versions.len() == 1 { "" } else { "s" },
+        versions.iter().map(ToString::to_string).join(", ")
     );
 
-    if !invalid.is_empty() {
-        message.push_str(&format!(
-            " (skipped {} invalid version{}: {})",
-            invalid.len(),
-            if invalid.len() == 1 { "" } else { "s" },
-            invalid.iter().map(ToString::to_string).join(", ")
-        ));
-    }
-
-    println!("{message}\n");
-
-    let to_install_versions = versions
+    let to_install_versions = game_versions
         .iter()
-        .filter(|v| valid.contains(&&v.id))
+        .filter(|v| versions.contains(&&v.id))
         .collect_vec();
     app::install_versions(to_install_versions)
         .await
