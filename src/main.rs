@@ -72,6 +72,12 @@ enum Action {
         // #[arg(short, long)]
         // name: Option<String>,
     },
+    /// Uninstall a server instance
+    Uninstall {
+        #[arg(required = true, value_parser = NonEmptyStringValueParser::new())]
+        #[arg(short, long)]
+        version: String, // in the future, `name` will be used instead
+    },
     /// Run a server instance
     Run {
         #[arg(required = true, value_parser = NonEmptyStringValueParser::new())]
@@ -86,12 +92,6 @@ enum Action {
         /// The file or directory to locate
         what: WhatEnum,
     },
-    // /// Uninstall a server instance
-    // Uninstall {
-    //     #[arg(required = true, value_parser = NonEmptyStringValueParser::new())]
-    //     #[arg(short, long)]
-    //     version: String, // in the future, `name` will be used instead
-    // },
 }
 
 #[doc(hidden)]
@@ -171,9 +171,9 @@ async fn main() -> Result<()> {
         Action::List { filter } => list_impl(filter).await?,
         Action::Info { version } => info_impl(version).await?,
         Action::Install { version } => install_impl(version).await?,
+        Action::Uninstall { version } => uninstall_impl(version).await?,
         Action::Run { version } => run_impl(version).await?,
         Action::Locate { what } => locate_impl(what)?,
-        // Action::Uninstall { version } => uninstall_impl(version).await?,
     }
 
     Ok(())
@@ -303,6 +303,14 @@ async fn install_impl(versions: Option<Vec<VersionNumber>>) -> Result<()> {
     Ok(())
 }
 
+async fn uninstall_impl(version: String) -> Result<()> {
+    app::uninstall_instance(version.parse()?)
+        .await
+        .wrap_err("Error while uninstalling instance")?;
+
+    Ok(())
+}
+
 async fn run_impl(version: String) -> Result<()> {
     app::run_instance(version.parse()?)
         .await
@@ -323,8 +331,4 @@ fn locate_impl(what: WhatEnum) -> Result<()> {
     app::locate(&what).wrap_err(format!("Error while locating `{what}`"))?;
 
     Ok(())
-}
-
-async fn uninstall_impl(version: impl Sized) -> Result<()> {
-    todo!()
 }

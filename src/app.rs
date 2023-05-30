@@ -330,6 +330,28 @@ pub(crate) fn locate(what: &String) -> Result<()> {
     Ok(())
 }
 
+pub(crate) async fn uninstall_instance(id: VersionNumber) -> Result<()> {
+    if let Some(instance) = META!().instances.get(&id.to_string()) {
+        for path in instance.files.iter() {
+            if path.is_dir() {
+                std::fs::remove_dir_all(path)
+                    .wrap_err(format!("Failed to remove directory {}", path.display()))?;
+            } else {
+                std::fs::remove_file(path)
+                    .wrap_err(format!("Failed to remove file {}", path.display()))?;
+            }
+        }
+    } else {
+        return Err(eyre!("Instance `{id}` does not exist"));
+    }
+
+    META!().remove_instance(&id.to_string());
+    META!().save(META_PATH.as_path())?;
+
+    // bonus: remove jre if it's not used by any other instances
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
