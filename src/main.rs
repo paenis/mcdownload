@@ -165,7 +165,7 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
 
     // lol again
-    let cli = tokio::task::spawn_blocking(|| Cli::parse()).await?;
+    let cli = tokio::task::spawn_blocking(Cli::parse).await?;
 
     match cli.action {
         Action::List { filter } => list_impl(filter).await?,
@@ -294,7 +294,7 @@ async fn install_impl(versions: Option<Vec<VersionNumber>>) -> Result<()> {
 
     let to_install_versions = game_versions
         .iter()
-        .filter(|v| versions.contains(&&v.id))
+        .filter(|v| versions.contains(&v.id))
         .collect_vec();
     app::install_versions(to_install_versions)
         .await

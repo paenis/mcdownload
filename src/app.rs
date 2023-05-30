@@ -54,9 +54,11 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
     for version in versions {
         let cloned_meta = META.clone();
-        let pb_server = bars.add(ProgressBar::new_spinner());
-        pb_server.set_style(PB_STYLE.clone());
-        pb_server.set_prefix(format!("{}", version.id));
+        let pb_server = bars.add(
+            ProgressBar::new_spinner()
+                .with_style(PB_STYLE.clone())
+                .with_prefix(version.id.to_string()),
+        );
         pb_server.enable_steady_tick(Duration::from_millis(100));
 
         pb_server.set_message("Getting version metadata...");
@@ -144,9 +146,11 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
             jres_installed.push(jre_version);
         }
 
-        let pb_jre = bars.add(ProgressBar::new_spinner());
-        pb_jre.set_style(PB_STYLE.clone());
-        pb_jre.set_prefix(format!("JRE {jre_version} for {}", version.id));
+        let pb_jre = bars.add(
+            ProgressBar::new_spinner()
+                .with_style(PB_STYLE.clone())
+                .with_prefix(format!("JRE {jre_version} for {}", version.id)),
+        );
         pb_jre.enable_steady_tick(Duration::from_millis(100));
 
         // at the same time, spawn a thread to install the JRE
@@ -193,6 +197,44 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 
     pb.finish_with_message("Done!");
 
+    Ok(())
+}
+
+pub(crate) async fn uninstall_instance(id: VersionNumber) -> Result<()> {
+    let pb = ProgressBar::new_spinner()
+        .with_style(PB_STYLE.clone())
+        .with_prefix(id.to_string());
+    pb.enable_steady_tick(Duration::from_millis(100));
+
+    pb.set_message("Checking if instance exists...");
+    if let Some(instance) = META!().instances.get(&id.to_string()) {
+        pb.set_message("Removing files...");
+        for path in instance.files.iter() {
+            if path.is_dir() {
+                std::fs::remove_dir_all(path)
+                    .wrap_err(format!("Failed to remove directory {}", path.display()))?;
+            } else {
+                std::fs::remove_file(path)
+                    .wrap_err(format!("Failed to remove file {}", path.display()))?;
+            }
+
+            META!()
+                .instances
+                .get_mut(&id.to_string())
+                .unwrap()
+                .remove_file(path);
+        }
+    } else {
+        return Err(eyre!("Instance `{id}` does not exist"));
+    }
+
+    pb.set_message("Updating metadata...");
+    META!().remove_instance(&id.to_string());
+    META!().save(META_PATH.as_path())?;
+
+    // bonus: remove jre if it's not used by any other instances
+
+    pb.finish_with_message("Done!");
     Ok(())
 }
 
@@ -327,28 +369,6 @@ pub(crate) fn locate(what: &String) -> Result<()> {
         }
     }
 
-    Ok(())
-}
-
-pub(crate) async fn uninstall_instance(id: VersionNumber) -> Result<()> {
-    if let Some(instance) = META!().instances.get(&id.to_string()) {
-        for path in instance.files.iter() {
-            if path.is_dir() {
-                std::fs::remove_dir_all(path)
-                    .wrap_err(format!("Failed to remove directory {}", path.display()))?;
-            } else {
-                std::fs::remove_file(path)
-                    .wrap_err(format!("Failed to remove file {}", path.display()))?;
-            }
-        }
-    } else {
-        return Err(eyre!("Instance `{id}` does not exist"));
-    }
-
-    META!().remove_instance(&id.to_string());
-    META!().save(META_PATH.as_path())?;
-
-    // bonus: remove jre if it's not used by any other instances
     Ok(())
 }
 
