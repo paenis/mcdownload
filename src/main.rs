@@ -21,6 +21,7 @@ use prettytable::{row, Cell, Row, Table};
 
 use crate::common::MCDL_VERSION;
 use crate::types::version::{GameVersionList, VersionNumber};
+use crate::utils::macros::enum_to_string;
 use crate::utils::net::get_version_manifest;
 
 lazy_static! {
@@ -137,6 +138,12 @@ enum WhatEnum {
     /// The directory containing configuration files
     Config,
 }
+
+enum_to_string!(WhatEnum {
+    Java,
+    Instance,
+    Config,
+});
 
 fn validate_version_number(v: &str) -> Result<VersionNumber> {
     // lol
@@ -321,14 +328,8 @@ async fn run_impl(version: String) -> Result<()> {
 
 fn locate_impl(what: WhatEnum) -> Result<()> {
     // TODO: pass directly
-    let what = match what {
-        WhatEnum::Java => "java",
-        WhatEnum::Instance => "instance",
-        WhatEnum::Config => "config",
-    }
-    .to_string();
-
-    app::locate(&what).wrap_err(format!("Error while locating `{what}`"))?;
+    app::locate(&what.to_string())
+        .wrap_err(format!("Error while locating `{}`", what.to_string()))?;
 
     Ok(())
 }

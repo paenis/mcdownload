@@ -17,6 +17,24 @@ macro_rules! defn_is_variant {
     };
 }
 
+/// Defines a simple ToString implementation for an enum with variants
+/// by using the variant name as the string representation
+macro_rules! enum_to_string {
+    ($enum_name:ident { $( $variant:ident ),* $(,)? }) => {
+        paste::paste! {
+            #[allow(unreachable_patterns)]
+            impl std::string::ToString for $enum_name {
+                fn to_string(&self) -> String {
+                    match self {
+                        $( Self::$variant => stringify!([<$variant:lower>]).into(), )*
+                        _ => unimplemented!(),
+                    }
+                }
+            }
+        }
+    };
+}
+
 /// Defines a FromStr implementation for an enum with variants
 /// that can be parsed from a string
 ///
@@ -63,7 +81,7 @@ macro_rules! parse_variants {
     };
 }
 
-pub(crate) use {defn_is_variant, parse_variants};
+pub(crate) use {defn_is_variant, enum_to_string, parse_variants};
 
 #[cfg(test)]
 mod tests {
