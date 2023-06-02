@@ -49,10 +49,9 @@ enum Action {
     List {
         #[command(flatten)]
         filter: Option<ListFilter>,
-        // #[arg(short, long)]
-        // #[arg(rename = "kebab-case")]
-        // /// List installed instances and their versions
-        // installed: bool,
+        #[arg(short, long)]
+        /// List installed instances and their versions
+        installed: bool,
     },
     /// Get information about a Minecraft version
     Info {
@@ -174,8 +173,9 @@ async fn main() -> Result<()> {
     // lol again
     let cli = tokio::task::spawn_blocking(Cli::parse).await?;
 
+    // TODO: macro
     match cli.action {
-        Action::List { filter } => list_impl(filter).await?,
+        Action::List { filter, installed } => list_impl(filter, installed).await?,
         Action::Info { version } => info_impl(version).await?,
         Action::Install { version } => install_impl(version).await?,
         Action::Uninstall { version } => uninstall_impl(version).await?,
@@ -186,7 +186,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn list_impl(filter: Option<ListFilter>) -> Result<()> {
+async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
     let filter = filter.unwrap_or_default();
 
     let versions = MANIFEST
@@ -213,33 +213,41 @@ async fn list_impl(filter: Option<ListFilter>) -> Result<()> {
         .sorted()
         .collect_vec();
 
-    if !std::io::stdout().is_terminal() {
-        versions.iter().for_each(|v| println!("{}", v.id));
-        return Ok(());
-    }
+    if installed {
+        // installed versions only, more info
+        todo!();
+    } else {
+        // short info for all versions
+        if !std::io::stdout().is_terminal() {
+            versions.iter().for_each(|v| println!("{}", v.id));
+            return Ok(());
+        }
 
-    let mut table = Table::new();
-    table.set_format(
-        FormatBuilder::new()
-            .column_separator(' ')
-            .borders(' ')
-            .padding(1, 1)
-            .build(),
-    );
-    table.set_titles(row![b => "Version", "Type", "Release Date"]);
-    for version in versions {
-        table.add_row(Row::new(vec![
-            Cell::new(&version.id.to_string()),
-            Cell::new(&version.release_type.to_string()).style_spec(
-                match version.release_type.as_str() {
-                    "release" => "Fgb",
-                    _ => "",
-                },
-            ),
-            Cell::new(&version.release_time.to_string()),
-        ]));
+        let mut table = Table::new();
+        table.set_format(
+            FormatBuilder::new()
+                .column_separator(' ')
+                .borders(' ')
+                .padding(1, 1)
+                .build(),
+        );
+
+        table.set_titles(row![b => "Version", "Type", "Release Date"]);
+        for version in versions {
+            table.add_row(Row::new(vec![
+                Cell::new(&version.id.to_string()),
+                Cell::new(&version.release_type.to_string()).style_spec(
+                    match version.release_type.as_str() {
+                        "release" => "Fgb",
+                        _ => "",
+                    },
+                ),
+                Cell::new(&version.release_time.to_string()),
+            ]));
+        }
+
+        table.printstd();
     }
-    table.printstd();
 
     Ok(())
 }
