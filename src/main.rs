@@ -173,7 +173,6 @@ async fn main() -> Result<()> {
     // lol again
     let cli = tokio::task::spawn_blocking(Cli::parse).await?;
 
-    // TODO: macro
     match cli.action {
         Action::List { filter, installed } => list_impl(filter, installed).await?,
         Action::Info { version } => info_impl(version).await?,
