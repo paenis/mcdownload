@@ -9,17 +9,17 @@ build = "build.rs"
 [dependencies]
 async_once = "0.2.6"
 bytes = "1.4.0"
-chrono = { version = "0.4.24", features = ["serde"] }
-clap = { version = "4.3.0", features = ["derive"] }
+chrono = { version = "0.4.26", features = ["serde"] }
+clap = { version = "4.3.1", features = ["derive"] }
 color-eyre = { version = "0.6.2", default-features = false }
 derive_more = { version = "0.99.17", default-features = false, features = ["constructor", "display"] }
 dialoguer = { version = "0.10.4", default-features = false }
 directories = "5.0.1"
-indicatif = "0.17.3"
+indicatif = "0.17.5"
 is-terminal = "0.4.7"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
-openssl = { version = "0.10.52", optional = true }
+openssl = { version = "0.10.54", optional = true }
 parking_lot = "0.12.1"
 paste = "1.0.12"
 prettytable-rs = { version = "0.10.0", default-features = false }
@@ -30,7 +30,7 @@ serde = { version = "1.0.163", features = ["derive"] }
 serde_json = "1.0.96"
 serde_with = "3.0.0"
 shell-escape = "0.1.5"
-tokio = { version = "1.28.1", features = ["rt-multi-thread", "macros", "fs", "process"] }
+tokio = { version = "1.28.2", features = ["rt-multi-thread", "macros", "fs", "process"] }
 toml = { version = "0.7.4", features = ["preserve_order"] }
 
 [dev-dependencies]
