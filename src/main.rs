@@ -8,12 +8,13 @@ pub(crate) mod common;
 pub(crate) mod types;
 pub(crate) mod utils;
 
+use std::io::IsTerminal;
+
 use async_once::AsyncOnce;
 use clap::builder::NonEmptyStringValueParser;
 use clap::error::ErrorKind;
 use clap::{arg, command, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use color_eyre::eyre::{eyre, Result, WrapErr};
-use is_terminal::IsTerminal;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use prettytable::format::FormatBuilder;
