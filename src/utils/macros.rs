@@ -17,7 +17,7 @@ macro_rules! defn_is_variant {
     };
 }
 
-/// Defines a simple ToString implementation for an enum with variants
+/// Defines a simple `ToString` implementation for an enum with variants
 /// by using the variant name as the string representation
 macro_rules! enum_to_string {
     ($enum_name:ident { $( $variant:ident ),* $(,)? }) => {
@@ -35,7 +35,7 @@ macro_rules! enum_to_string {
     };
 }
 
-/// Defines a FromStr implementation for an enum with variants
+/// Defines a `FromStr` implementation for an enum with variants
 /// that can be parsed from a string
 ///
 /// Variants are prioritized in the order they are defined

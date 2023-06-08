@@ -1,6 +1,5 @@
 //! A tool for managing Minecraft server versions
 
-#![warn(clippy::all)]
 #![warn(rustdoc::all)]
 
 pub(crate) mod app;
@@ -27,7 +26,7 @@ use prettytable::format::FormatBuilder;
 use prettytable::{row, Cell, Row, Table};
 use tracing::{debug, info, instrument};
 
-use crate::common::{MCDL_VERSION, PROJ_DIRS};
+use crate::common::{LOG_BASE_DIR, MCDL_VERSION};
 use crate::types::meta::AsArgs;
 use crate::types::version::{GameVersionList, VersionNumber};
 use crate::utils::macros::enum_to_string;
@@ -39,7 +38,6 @@ lazy_static! {
             .await
             .expect("Failed to get version manifest")
     });
-    static ref LOG_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("log");
 }
 
 /* cli */
@@ -148,12 +146,15 @@ enum WhatEnum {
     Instance,
     /// The directory containing configuration files
     Config,
+    /// The directory containing logs
+    Log,
 }
 
 enum_to_string!(WhatEnum {
     Java,
     Instance,
     Config,
+    Log,
 });
 
 #[instrument(level = "debug", err, ret)]
@@ -192,7 +193,6 @@ async fn main() -> Result<()> {
     // set up tracing
     install_tracing(&log_path)?;
     info!("Logging to {}", log_path.display());
-    println!("=> Logging to {}\n", log_path.display().bold());
 
     // install color_eyre
     HookBuilder::default()
@@ -204,6 +204,7 @@ async fn main() -> Result<()> {
 
     // lol again
     let cli = tokio::task::spawn_blocking(Cli::parse).await?;
+    println!("=> Logging to {}\n", log_path.display().bold());
     debug!(?cli);
 
     match cli.action {
@@ -287,7 +288,9 @@ async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
         info!("Filtering for all versions");
 
         if !std::io::stdout().is_terminal() {
-            versions.iter().for_each(|v| println!("{}", v.id));
+            for v in versions {
+                println!("{}", v.id);
+            }
             return Ok(());
         }
 

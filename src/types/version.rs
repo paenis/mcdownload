@@ -49,12 +49,12 @@ impl FromStr for ReleaseVersion {
         }
 
         match RE.captures(s) {
-            Some(caps) => Ok(ReleaseVersion::new(
+            Some(caps) => Ok(Self::new(
                 caps[1].parse().unwrap(),
                 caps[2].parse().unwrap(),
                 caps.get(3).map_or(0, |m| m.as_str().parse().unwrap()),
             )),
-            None => Err(format!("Invalid version (expected X.Y.Z?, got: {s})")),
+            None => Err(format!("Invalid version (expected X.Y[.Z], got: {s})")),
         }
     }
 }
@@ -100,14 +100,14 @@ impl FromStr for PreReleaseVersion {
         }
 
         match RE.captures(s) {
-            Some(caps) => Ok(PreReleaseVersion::new(
+            Some(caps) => Ok(Self::new(
                 caps[1].parse().unwrap(),
                 caps[2].parse().unwrap(),
                 caps.get(3).map_or(0, |m| m.as_str().parse().unwrap()),
                 caps[4].to_string(),
             )),
             None => Err(format!(
-                "Invalid version (expected X.Y.Z?-pre|rcN, got: {s})"
+                "Invalid version (expected X.Y[.Z]-<pre|rcN>, got: {s})"
             )),
         }
     }
@@ -140,21 +140,21 @@ impl FromStr for SnapshotVersion {
         }
 
         match RE.captures(s) {
-            Some(caps) => Ok(SnapshotVersion::new(
+            Some(caps) => Ok(Self::new(
                 caps[1].parse().unwrap(),
                 caps[2].parse().unwrap(),
                 caps[3].to_string(),
             )),
-            None => Err(format!("Invalid version (expected XXwYYZ, got: {})", s)),
+            None => Err(format!("Invalid version (expected XXwYYZ, got: {s})")),
         }
     }
 }
 
 /// A version number, which can be one of the following:
-/// - Release
-/// - PreRelease
-/// - Snapshot
-/// - Other
+/// - `Release`
+/// - `PreRelease`
+/// - `Snapshot`
+/// - `Other`
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, MoreDisplay)]
 #[serde(untagged)]
 pub(crate) enum VersionNumber {

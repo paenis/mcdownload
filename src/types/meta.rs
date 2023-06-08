@@ -105,7 +105,7 @@ impl InstanceSettings {
             .await
             .wrap_err(format!("Error reading settings at {}", path.display()))?;
 
-        let settings: InstanceSettings = toml::from_str(&contents)
+        let settings: Self = toml::from_str(&contents)
             .wrap_err(format!("Error parsing settings at {}", path.display()))?;
 
         Ok(settings)
@@ -181,7 +181,7 @@ impl AppMeta {
         let data =
             std::fs::read(path).wrap_err(format!("Error reading meta at {}", path.display()))?;
 
-        let meta: AppMeta = rmp_serde::from_slice(&data)
+        let meta: Self = rmp_serde::from_slice(&data)
             .wrap_err(format!("Error parsing meta at {}", path.display()))?;
 
         Ok(meta)

@@ -16,7 +16,7 @@ use tokio::process::Command;
 use tokio::task::JoinSet;
 use tracing::{debug, info, instrument, warn};
 
-use crate::common::{PROJ_DIRS, REQWEST_CLIENT};
+use crate::common::{LOG_BASE_DIR, PROJ_DIRS, REQWEST_CLIENT};
 use crate::types::meta::{AppMeta, InstanceMeta, InstanceSettings};
 use crate::types::version::{GameVersion, VersionMetadata, VersionNumber};
 use crate::utils::net::{download_jre, get_version_metadata};
@@ -164,11 +164,11 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
                 "Skipping JRE install"
             );
             continue;
-        } else {
-            jres_installed.push(jre_version);
-        }
+        } 
 
         // otherwise, install it
+        jres_installed.push(jre_version);
+        
         info!(
             jre = jre_version,
             version = version_display,
@@ -252,7 +252,7 @@ pub(crate) fn uninstall_instance(id: VersionNumber) -> Result<()> {
     }
 
     pb.set_message("Removing files...");
-    for path in instance_files.iter() {
+    for path in &instance_files {
         if !path.exists() {
             warn!(?path, "File does not exist");
             continue;
@@ -413,6 +413,9 @@ pub(crate) fn locate(what: &String) -> Result<()> {
                 "Instance settings base directory: {}",
                 INSTANCE_SETTINGS_BASE_DIR.display()
             );
+        }
+        "log" => {
+            println!("Log base directory: {}", LOG_BASE_DIR.display());
         }
         _ => {
             return Err(eyre!("Unknown location: {what}"));

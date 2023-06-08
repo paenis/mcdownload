@@ -1,4 +1,3 @@
-use directories::ProjectDirs;
 use lazy_static::lazy_static;
 
 lazy_static! {
@@ -31,7 +30,8 @@ lazy_static! {
             .build()
             .expect("failed to build reqwest client")
     };
-    pub static ref PROJ_DIRS: ProjectDirs =
-        ProjectDirs::from("com.github", "paenis", env!("CARGO_PKG_NAME"))
+    pub static ref PROJ_DIRS: directories::ProjectDirs =
+        directories::ProjectDirs::from("com.github", "paenis", env!("CARGO_PKG_NAME"))
             .expect("failed to get project directories");
+    pub static ref LOG_BASE_DIR: std::path::PathBuf = PROJ_DIRS.data_local_dir().join("log");
 }
