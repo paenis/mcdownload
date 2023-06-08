@@ -14,6 +14,9 @@ try `linux-nightly-release` for Linux and `win-msvc-release` for Windows.
 cargo install --git https://github.com/paenis/mcdownload
 ```
 
+Requires a system OpenSSL installation (see [openssl]), or, if building with `--features vendored-openssl`, a C compiler, perl, perl-core, and make.
+
+[openssl]: https://docs.rs/openssl/latest/openssl/#building
 [actions]: https://github.com/paenis/mcdownload/actions?query=is%3Asuccess
 [nightly]: https://nightly.link/paenis/mcdownload/workflows/test/main
 

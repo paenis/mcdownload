@@ -234,15 +234,22 @@ pub(crate) fn uninstall_instance(id: VersionNumber) -> Result<()> {
         .with_prefix(id.to_string());
     pb.enable_steady_tick(Duration::from_millis(100));
 
+    let mut instance_files = vec![];
+    
     pb.set_message("Checking if instance exists...");
     if let Some(instance) = META!().instances.get(&id.to_string()) {
-        pb.set_message("Removing files...");
-        for path in instance.files.iter() {
+        instance_files.extend(instance.files.clone());
+    } else {
+        return Err(eyre!("Instance `{id}` does not exist"));
+    }
+
+    pb.set_message("Removing files...");
+        for path in instance_files.iter() {
             if !path.exists() {
                 warn!(?path, "File does not exist");
                 continue;
             }
-
+          
             if path.is_dir() {
                 info!(?path, "Removing directory");
                 std::fs::remove_dir_all(path)
@@ -260,9 +267,6 @@ pub(crate) fn uninstall_instance(id: VersionNumber) -> Result<()> {
                 .remove_file(path);
             META!().save(META_PATH.as_path())?;
         }
-    } else {
-        return Err(eyre!("Instance `{id}` does not exist"));
-    }
 
     pb.set_message("Updating metadata...");
     META!().remove_instance(&id.to_string());
