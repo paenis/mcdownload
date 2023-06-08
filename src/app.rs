@@ -14,7 +14,7 @@ use parking_lot::Mutex;
 use tokio::fs;
 use tokio::process::Command;
 use tokio::task::JoinSet;
-use tracing::{debug, info, instrument, warn, error};
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::common::{LOG_BASE_DIR, PROJ_DIRS, REQWEST_CLIENT};
 use crate::types::meta::{AppMeta, InstanceMeta, InstanceSettings};
@@ -338,7 +338,11 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
 
     cmd.args(&args);
 
-    debug!("Starting server with command line: {java} {args}", java = java_path.display(), args = args_string);
+    debug!(
+        "Starting server with command line: {java} {args}",
+        java = java_path.display(),
+        args = args_string
+    );
     let mut child = cmd.spawn().wrap_err(format!(
         "Failed to start server with command line: {java} {args}",
         java = java_path.display(),
@@ -387,7 +391,10 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
                     "Crash report uploaded to {}",
                     response["url"].as_str().unwrap()
                 );
-                debug!(url = response["url"].as_str().unwrap(), "Crash report uploaded");
+                debug!(
+                    url = response["url"].as_str().unwrap(),
+                    "Crash report uploaded"
+                );
             } else {
                 return Err(eyre!(
                     "Failed to upload crash report: {}",
