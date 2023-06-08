@@ -14,7 +14,7 @@ try `linux-nightly-release` for Linux and `win-msvc-release` for Windows.
 cargo install --git https://github.com/paenis/mcdownload
 ```
 
-Requires a system OpenSSL installation (see [openssl]), or, if building with `--features vendored-openssl`, a C compiler, perl, perl-core, and make.
+Requires a system OpenSSL installation , or, if building with `--features vendored-openssl`, a C compiler, perl, perl-core, and make. See [openssl] for more information.
 
 [openssl]: https://docs.rs/openssl/latest/openssl/#building
 [actions]: https://github.com/paenis/mcdownload/actions?query=is%3Asuccess
@@ -30,7 +30,7 @@ Requires a system OpenSSL installation (see [openssl]), or, if building with `--
   - [ ] alternative outputs (JSON/debug/etc.) for info/list commands
   - [ ] `-i`/`--installed` filter for list command
     - [x] likely depends on [#3][pull-3]
-  - [ ] `tracing_error` for `eyre`, maybe
+  - [x] `tracing_error` for `eyre`, maybe
   - [ ] third-party servers (fabric, forge, etc.) [#1][pull-1]
 - [ ] types/version
   - [ ] fabric meta (?)
