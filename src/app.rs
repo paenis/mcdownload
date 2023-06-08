@@ -206,10 +206,17 @@ pub(crate) async fn uninstall_instance(id: VersionNumber) -> Result<()> {
         .with_prefix(id.to_string());
     pb.enable_steady_tick(Duration::from_millis(100));
 
+    let mut instance_files = vec![];
+    
     pb.set_message("Checking if instance exists...");
     if let Some(instance) = META!().instances.get(&id.to_string()) {
-        pb.set_message("Removing files...");
-        for path in instance.files.iter() {
+        instance_files.extend(instance.files.clone());
+    } else {
+        return Err(eyre!("Instance `{id}` does not exist"));
+    }
+
+    pb.set_message("Removing files...");
+        for path in instance_files.iter() {
             if path.is_dir() {
                 std::fs::remove_dir_all(path)
                     .wrap_err(format!("Failed to remove directory {}", path.display()))?;
@@ -224,9 +231,6 @@ pub(crate) async fn uninstall_instance(id: VersionNumber) -> Result<()> {
                 .unwrap()
                 .remove_file(path);
         }
-    } else {
-        return Err(eyre!("Instance `{id}` does not exist"));
-    }
 
     pb.set_message("Updating metadata...");
     META!().remove_instance(&id.to_string());
