@@ -18,7 +18,7 @@ lazy_static! {
     static ref DEFAULT_SERVER_ARGS: Vec<String> = vec!["--nogui".to_string()];
 }
 
-trait AsArgs {
+pub(crate) trait AsArgs {
     fn as_args(&self) -> Vec<String>;
 
     fn as_args_string(&self) -> String {
@@ -152,15 +152,15 @@ impl InstanceMeta {
         }
     }
 
-    #[instrument(skip(self), fields(id = %self.id))]
+    #[instrument(skip(self, file), fields(id = %self.id))]
     pub fn add_file(&mut self, file: &Path) {
-        debug!("Adding file {}", file.display());
+        debug!(?file, "Adding file");
         self.files.push(file.to_path_buf());
     }
 
-    #[instrument(skip(self), fields(id = %self.id))]
+    #[instrument(skip(self, file), fields(id = %self.id))]
     pub fn remove_file(&mut self, file: &PathBuf) {
-        debug!("Removing file {}", file.display());
+        debug!(?file, "Removing file");
         self.files.retain(|f| f != file);
     }
 }
@@ -201,7 +201,7 @@ impl AppMeta {
         Ok(())
     }
 
-    #[instrument]
+    #[instrument(skip(path))]
     pub fn read_or_create<P: AsRef<Path> + Debug>(path: P) -> Self {
         let path = path.as_ref();
         if let Ok(meta) = Self::from_file(path) {
@@ -219,9 +219,9 @@ impl AppMeta {
         self.instances.insert(instance.id.to_string(), instance);
     }
 
-    #[instrument(skip(self))]
+    #[instrument(ret(level = "debug"), skip(self))]
     pub fn remove_instance(&mut self, id: &String) -> Option<InstanceMeta> {
-        debug!("Removing instance {}", id);
+        debug!("Removing instance");
         self.instances.remove(id)
     }
 
@@ -232,13 +232,13 @@ impl AppMeta {
 
     #[instrument(skip(self))]
     pub fn add_jre(&mut self, jre: u8) -> bool {
-        debug!("Adding JRE {}", jre);
+        debug!("Adding JRE");
         self.installed_jres.insert(jre)
     }
 
     #[instrument(skip(self))]
     pub fn remove_jre(&mut self, jre: &u8) -> bool {
-        debug!("Removing JRE {}", jre);
+        debug!("Removing JRE");
         self.installed_jres.remove(jre)
     }
 

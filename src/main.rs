@@ -18,6 +18,7 @@ use chrono::Utc;
 use clap::builder::NonEmptyStringValueParser;
 use clap::error::ErrorKind;
 use clap::{arg, command, Args, CommandFactory, Parser, Subcommand, ValueEnum};
+use color_eyre::config::{HookBuilder, Theme};
 use color_eyre::eyre::{eyre, Result, WrapErr};
 use color_eyre::owo_colors::OwoColorize;
 use itertools::Itertools;
@@ -27,6 +28,7 @@ use prettytable::{row, Cell, Row, Table};
 use tracing::{debug, info, instrument};
 
 use crate::common::{MCDL_VERSION, PROJ_DIRS};
+use crate::types::meta::AsArgs;
 use crate::types::version::{GameVersionList, VersionNumber};
 use crate::utils::macros::enum_to_string;
 use crate::utils::net::get_version_manifest;
@@ -154,7 +156,7 @@ enum_to_string!(WhatEnum {
     Config,
 });
 
-#[instrument]
+#[instrument(level = "debug", err, ret)]
 fn validate_version_number(v: &str) -> Result<VersionNumber> {
     // lol
     let valid_versions: Vec<VersionNumber> =
@@ -169,7 +171,6 @@ fn validate_version_number(v: &str) -> Result<VersionNumber> {
         });
 
     let version = v.parse()?;
-    debug!(?version, ?v);
 
     if valid_versions.contains(&version) {
         Ok(version)
@@ -182,7 +183,7 @@ fn validate_version_number(v: &str) -> Result<VersionNumber> {
 
 /* main */
 
-#[instrument]
+#[instrument(err(Debug), ret(level = "debug"))]
 #[tokio::main]
 async fn main() -> Result<()> {
     let log_name = format!("mcdl-{}.log", Utc::now().format("%Y%m%d-%H%M%S"));
@@ -193,12 +194,17 @@ async fn main() -> Result<()> {
     info!("Logging to {}", log_path.display());
     println!("=> Logging to {}\n", log_path.display().bold());
 
-    color_eyre::install()?;
+    // install color_eyre
+    HookBuilder::default()
+        .display_env_section(true)
+        .theme(Theme::new())
+        .install()?;
+
+    info!("Args: {}", std::env::args().collect_vec().as_args_string());
 
     // lol again
     let cli = tokio::task::spawn_blocking(Cli::parse).await?;
-
-    info!(?cli);
+    debug!(?cli);
 
     match cli.action {
         Action::List { filter, installed } => list_impl(filter, installed).await?,
@@ -209,7 +215,6 @@ async fn main() -> Result<()> {
         Action::Locate { what } => locate_impl(what)?,
     }
 
-    info!("Done");
     Ok(())
 }
 
@@ -225,7 +230,8 @@ fn install_tracing(path: &PathBuf) -> Result<()> {
         .with_ansi(false)
         .with_timer(fmt::time::uptime())
         .with_writer(Mutex::new(file));
-    let filter_layer = EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new("info"))?;
+    let filter_layer =
+        EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new("mcdl=debug"))?;
 
     tracing_subscriber::registry()
         .with(filter_layer)
@@ -240,7 +246,7 @@ fn install_tracing(path: &PathBuf) -> Result<()> {
 
 /* impls */
 
-#[instrument(skip(filter))]
+#[instrument(err, ret(level = "debug"), skip(filter))]
 async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
     let filter = filter.unwrap_or_default();
     debug!(?filter);
@@ -314,7 +320,7 @@ async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
     Ok(())
 }
 
-#[instrument]
+#[instrument(err, ret(level = "debug"))]
 async fn info_impl(version: VersionNumber) -> Result<()> {
     let version = MANIFEST
         .get()
@@ -338,7 +344,7 @@ async fn info_impl(version: VersionNumber) -> Result<()> {
     Ok(())
 }
 
-#[instrument(skip(versions))]
+#[instrument(err, ret(level = "debug"), skip(versions))]
 async fn install_impl(versions: Option<Vec<VersionNumber>>) -> Result<()> {
     let manifest = MANIFEST.get().await;
     let game_versions = &manifest.versions;
@@ -382,14 +388,14 @@ async fn install_impl(versions: Option<Vec<VersionNumber>>) -> Result<()> {
     Ok(())
 }
 
-#[instrument]
+#[instrument(err, ret(level = "debug"))]
 fn uninstall_impl(version: String) -> Result<()> {
     app::uninstall_instance(version.parse()?).wrap_err("Error while uninstalling instance")?;
 
     Ok(())
 }
 
-#[instrument]
+#[instrument(err, ret(level = "debug"))]
 async fn run_impl(version: String) -> Result<()> {
     app::run_instance(version.parse()?)
         .await
@@ -398,7 +404,7 @@ async fn run_impl(version: String) -> Result<()> {
     Ok(())
 }
 
-#[instrument]
+#[instrument(err, ret(level = "debug"))]
 fn locate_impl(what: WhatEnum) -> Result<()> {
     // TODO: pass directly
     app::locate(&what.to_string())
