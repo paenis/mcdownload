@@ -7,7 +7,6 @@ use std::time::Duration;
 use bytes::Bytes;
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
 use dialoguer::Confirm;
-use directories::ProjectDirs;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -15,16 +14,14 @@ use parking_lot::Mutex;
 use tokio::fs;
 use tokio::process::Command;
 use tokio::task::JoinSet;
+use tracing::{debug, info, instrument, warn};
 
-use crate::common::REQWEST_CLIENT;
+use crate::common::{PROJ_DIRS, REQWEST_CLIENT};
 use crate::types::meta::{AppMeta, InstanceMeta, InstanceSettings};
 use crate::types::version::{GameVersion, VersionMetadata, VersionNumber};
 use crate::utils::net::{download_jre, get_version_metadata};
 
 lazy_static! {
-    static ref PROJ_DIRS: ProjectDirs =
-        ProjectDirs::from("com.github", "paenis", env!("CARGO_PKG_NAME"))
-            .expect("failed to get project directories");
     static ref INSTANCE_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("instance");
     static ref JRE_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("jre");
     static ref INSTANCE_SETTINGS_BASE_DIR: PathBuf = PROJ_DIRS.config_local_dir().join("instance");
@@ -46,13 +43,19 @@ macro_rules! META {
 
 // ideally there is one public function for each subcommand
 
+#[instrument(err, ret(level = "debug"), skip(versions))]
 pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> {
+    info!("Installing {} versions", versions.len());
+
     let mut install_threads = JoinSet::new();
     let bars = MultiProgress::new();
 
     let mut jres_installed: Vec<u8> = Vec::new();
 
     for version in versions {
+        let version_display = version.id.to_string();
+        debug!(version = version_display, version.url, "Entering loop");
+
         let cloned_meta = META.clone();
         let pb_server = bars.add(
             ProgressBar::new_spinner()
@@ -66,9 +69,16 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
         let jre_version = version_meta.java_version.major_version;
 
         // spawn a thread to install the version
+        let thread_version_display = version_meta.id.to_string();
         install_threads.spawn(async move {
+            debug!(version = thread_version_display, "Entering install thread");
+
             if !version_meta.downloads.contains_key("server") {
                 pb_server.finish_with_message("Cancelled (no server jar)");
+                debug!(
+                    version = thread_version_display,
+                    "Exiting install thread (no server jar)"
+                );
                 return Ok::<(), eyre::Report>(());
             }
 
@@ -77,6 +87,10 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
             // only necessary while there is one instance per version
             if META.lock().instance_installed(&version_meta.id.to_string()) {
                 pb_server.finish_with_message("Cancelled (already installed)");
+                debug!(
+                    version = thread_version_display,
+                    "Exiting install thread (already installed)"
+                );
                 return Ok::<(), eyre::Report>(());
             }
 
@@ -136,15 +150,30 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
             meta.save(META_PATH.as_path())?;
 
             pb_server.finish_with_message("Done!");
+
+            debug!(version = thread_version_display, "Exiting install thread");
+            info!(version = thread_version_display, "Installed version");
             Ok::<(), eyre::Report>(())
         });
 
         // if the JRE is already installed, skip it
         if META!().jre_installed(&jre_version) || jres_installed.contains(&jre_version) {
+            debug!(
+                jre = jre_version,
+                version = version_display,
+                "Skipping JRE install"
+            );
             continue;
         } else {
             jres_installed.push(jre_version);
         }
+
+        // otherwise, install it
+        info!(
+            jre = jre_version,
+            version = version_display,
+            "Installing JRE"
+        );
 
         let pb_jre = bars.add(
             ProgressBar::new_spinner()
@@ -162,6 +191,8 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
             Ok::<(), eyre::Report>(())
         });
+
+        debug!(version = version_display, version.url, "Exiting loop");
     }
 
     while let Some(result) = install_threads.join_next().await {
@@ -175,39 +206,44 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 //     install_versions(vec![version]).await
 // }
 
-// major_version is 8, 16, 17 ONLY
+#[instrument(err, ret(level = "debug"), skip(pb))]
 async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
     let jre_dir = JRE_BASE_DIR.join(major_version.to_string());
 
     if META!().jre_installed(major_version) {
         pb.finish_with_message("Cancelled (already installed)");
+        debug!("Cancelled JRE install (this should never happen)");
         return Ok(());
     }
 
     pb.set_message("Downloading JRE...");
+    info!("Starting JRE download");
     let jre = download_jre(major_version).await?;
+    info!("Downloaded JRE");
 
     pb.set_message("Extracting JRE...");
-
+    info!("Starting JRE extraction");
     extract_jre(jre, &jre_dir).wrap_err(format!("Failed to extract JRE"))?;
+    info!("Extracted JRE");
 
     pb.set_message("Updating metadata...");
     META!().add_jre(*major_version);
     META!().save(META_PATH.as_path())?;
 
     pb.finish_with_message("Done!");
-
+    info!("Installed JRE");
     Ok(())
 }
 
-pub(crate) async fn uninstall_instance(id: VersionNumber) -> Result<()> {
+#[instrument(err, ret(level = "debug"), skip(id))]
+pub(crate) fn uninstall_instance(id: VersionNumber) -> Result<()> {
     let pb = ProgressBar::new_spinner()
         .with_style(PB_STYLE.clone())
         .with_prefix(id.to_string());
     pb.enable_steady_tick(Duration::from_millis(100));
 
     let mut instance_files = vec![];
-    
+
     pb.set_message("Checking if instance exists...");
     if let Some(instance) = META!().instances.get(&id.to_string()) {
         instance_files.extend(instance.files.clone());
@@ -216,21 +252,29 @@ pub(crate) async fn uninstall_instance(id: VersionNumber) -> Result<()> {
     }
 
     pb.set_message("Removing files...");
-        for path in instance_files.iter() {
-            if path.is_dir() {
-                std::fs::remove_dir_all(path)
-                    .wrap_err(format!("Failed to remove directory {}", path.display()))?;
-            } else {
-                std::fs::remove_file(path)
-                    .wrap_err(format!("Failed to remove file {}", path.display()))?;
-            }
-
-            META!()
-                .instances
-                .get_mut(&id.to_string())
-                .unwrap()
-                .remove_file(path);
+    for path in instance_files.iter() {
+        if !path.exists() {
+            warn!(?path, "File does not exist");
+            continue;
         }
+
+        if path.is_dir() {
+            info!(?path, "Removing directory");
+            std::fs::remove_dir_all(path)
+                .wrap_err(format!("Failed to remove directory {}", path.display()))?;
+        } else {
+            info!(?path, "Removing file");
+            std::fs::remove_file(path)
+                .wrap_err(format!("Failed to remove file {}", path.display()))?;
+        }
+
+        META!()
+            .instances
+            .get_mut(&id.to_string())
+            .unwrap()
+            .remove_file(path);
+        META!().save(META_PATH.as_path())?;
+    }
 
     pb.set_message("Updating metadata...");
     META!().remove_instance(&id.to_string());
@@ -242,6 +286,7 @@ pub(crate) async fn uninstall_instance(id: VersionNumber) -> Result<()> {
     Ok(())
 }
 
+#[instrument(err, ret(level = "debug"))]
 pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
     let instance_path = INSTANCE_BASE_DIR.join(id.to_string());
 
@@ -354,6 +399,7 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
     Ok(())
 }
 
+#[instrument(err, ret(level = "debug"))]
 pub(crate) fn locate(what: &String) -> Result<()> {
     match what.as_str() {
         "java" => {
@@ -402,6 +448,7 @@ mod tests {
 // platform specific stuff
 
 #[cfg(windows)]
+#[instrument(err, ret(level = "debug"), skip(jre))]
 fn extract_jre(jre: Bytes, jre_dir: &PathBuf) -> Result<()> {
     use std::io::{BufReader, Cursor, Read};
 
@@ -447,6 +494,7 @@ fn extract_jre(jre: Bytes, jre_dir: &PathBuf) -> Result<()> {
 }
 
 #[cfg(target_os = "linux")]
+#[instrument(err, ret(level = "debug"), skip(jre))]
 fn extract_jre(jre: Bytes, jre_dir: &PathBuf) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
 
@@ -491,10 +539,12 @@ fn extract_jre(jre: Bytes, jre_dir: &PathBuf) -> Result<()> {
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
+#[instrument(err, ret(level = "debug"), skip(jre))]
 fn extract_jre(_jre: &Bytes, _jre_dir: &PathBuf) -> Result<()> {
     Err(eyre!("Unsupported OS"))
 }
 
+#[instrument(ret(level = "debug"))]
 fn get_java_path(version: u8) -> PathBuf {
     JRE_BASE_DIR
         .join(version.to_string())

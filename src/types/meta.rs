@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 
 use color_eyre::eyre::{Result, WrapErr};
@@ -8,6 +9,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tracing::{debug, instrument};
 
 use crate::types::version::VersionNumber;
 
@@ -16,7 +18,7 @@ lazy_static! {
     static ref DEFAULT_SERVER_ARGS: Vec<String> = vec!["--nogui".to_string()];
 }
 
-trait AsArgs {
+pub(crate) trait AsArgs {
     fn as_args(&self) -> Vec<String>;
 
     fn as_args_string(&self) -> String {
@@ -36,7 +38,7 @@ where T: Clone + Into<Vec<String>>
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct InstanceJavaSettings {
     /// The major version of the JVM to use
     ///
@@ -56,7 +58,7 @@ impl InstanceJavaSettings {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct InstanceServerSettings {
     /// The path to the server jar file, relative to the instance directory
     pub jar: PathBuf,
@@ -73,7 +75,7 @@ impl Default for InstanceServerSettings {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct InstanceSettings {
     /// The settings for the JVM
     pub java: InstanceJavaSettings,
@@ -89,7 +91,10 @@ impl InstanceSettings {
         }
     }
 
-    pub async fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+    #[instrument]
+    pub async fn from_file<P: AsRef<Path> + Debug>(path: P) -> Result<Self> {
+        debug!("Reading instance settings");
+
         let path = path.as_ref();
         let mut file = fs::File::open(path)
             .await
@@ -106,7 +111,10 @@ impl InstanceSettings {
         Ok(settings)
     }
 
-    pub async fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+    #[instrument]
+    pub async fn save<P: AsRef<Path> + Debug>(&self, path: P) -> Result<()> {
+        debug!("Saving instance settings");
+
         let path = path.as_ref();
         fs::create_dir_all(path.parent().expect("infallible")).await?;
         let mut file = fs::File::create(path).await.wrap_err(format!(
@@ -144,11 +152,15 @@ impl InstanceMeta {
         }
     }
 
+    #[instrument(skip(self, file), fields(id = %self.id))]
     pub fn add_file(&mut self, file: &Path) {
+        debug!(?file, "Adding file");
         self.files.push(file.to_path_buf());
     }
 
+    #[instrument(skip(self, file), fields(id = %self.id))]
     pub fn remove_file(&mut self, file: &PathBuf) {
+        debug!(?file, "Removing file");
         self.files.retain(|f| f != file);
     }
 }
@@ -161,9 +173,11 @@ pub(crate) struct AppMeta {
 }
 
 impl AppMeta {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let path = path.as_ref();
+    #[instrument]
+    pub fn from_file<P: AsRef<Path> + Debug>(path: P) -> Result<Self> {
+        debug!("Reading meta");
 
+        let path = path.as_ref();
         let data =
             std::fs::read(path).wrap_err(format!("Error reading meta at {}", path.display()))?;
 
@@ -173,7 +187,10 @@ impl AppMeta {
         Ok(meta)
     }
 
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+    #[instrument(skip(self))]
+    pub fn save<P: AsRef<Path> + Debug>(&self, path: P) -> Result<()> {
+        debug!("Saving meta");
+
         let path = path.as_ref();
         std::fs::create_dir_all(path.parent().expect("infallible"))?;
         let data = rmp_serde::to_vec(self)
@@ -184,7 +201,8 @@ impl AppMeta {
         Ok(())
     }
 
-    pub fn read_or_create<P: AsRef<Path>>(path: P) -> Self {
+    #[instrument(skip(path))]
+    pub fn read_or_create<P: AsRef<Path> + Debug>(path: P) -> Self {
         let path = path.as_ref();
         if let Ok(meta) = Self::from_file(path) {
             meta
@@ -195,26 +213,36 @@ impl AppMeta {
         }
     }
 
+    #[instrument(skip(self, instance), fields(id = %instance.id))]
     pub fn add_instance(&mut self, instance: InstanceMeta) {
+        debug!("Adding instance {:?}", instance);
         self.instances.insert(instance.id.to_string(), instance);
     }
 
+    #[instrument(ret(level = "debug"), skip(self))]
     pub fn remove_instance(&mut self, id: &String) -> Option<InstanceMeta> {
+        debug!("Removing instance");
         self.instances.remove(id)
     }
 
+    #[instrument(skip(self))]
     pub fn instance_installed(&self, id: &String) -> bool {
         self.instances.contains_key(id)
     }
 
+    #[instrument(skip(self))]
     pub fn add_jre(&mut self, jre: u8) -> bool {
+        debug!("Adding JRE");
         self.installed_jres.insert(jre)
     }
 
+    #[instrument(skip(self))]
     pub fn remove_jre(&mut self, jre: &u8) -> bool {
+        debug!("Removing JRE");
         self.installed_jres.remove(jre)
     }
 
+    #[instrument(skip(self))]
     pub fn jre_installed(&self, jre: &u8) -> bool {
         self.installed_jres.contains(jre)
     }

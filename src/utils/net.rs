@@ -7,6 +7,7 @@ use directories::ProjectDirs;
 use lazy_static::lazy_static;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::common::REQWEST_CLIENT;
 use crate::types::net::CachedResponse;
@@ -34,18 +35,21 @@ fn fabric_api_path(path: &str) -> String {
     format!("{FABRIC_API_URL}{path}")
 }
 
+#[instrument]
 pub(crate) async fn get_version_manifest() -> Result<GameVersionList> {
     let cache_file = CACHE_BASE_DIR.join("manifest.mpk");
 
     get_maybe_cached(&api_path("mc/game/version_manifest.json"), &cache_file).await
 }
 
+#[instrument(skip(version), fields(version = %version.id))]
 pub(crate) async fn get_version_metadata(version: &GameVersion) -> Result<VersionMetadata> {
     let cache_file = CACHE_BASE_DIR.join(format!("{}.mpk", version.id));
 
     get_maybe_cached(&version.url, &cache_file).await
 }
 
+#[instrument]
 pub(crate) async fn get_maybe_cached<T>(url: &str, cache_file: &PathBuf) -> Result<T>
 where T: Serialize + for<'de> Deserialize<'de> {
     if let Ok(cached) = CachedResponse::<T>::from_file(&cache_file).await {
@@ -65,6 +69,7 @@ where T: Serialize + for<'de> Deserialize<'de> {
     Ok(response)
 }
 
+#[instrument]
 pub(crate) async fn download_jre(major_version: &u8) -> Result<Bytes> {
     let url = format!(
         "https://api.adoptium.net/v3/binary/latest/{feature_version}/{release_type}/{os}/{arch}/{image_type}/{jvm_impl}/{heap_size}/{vendor}",

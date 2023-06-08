@@ -8,19 +8,27 @@ pub(crate) mod common;
 pub(crate) mod types;
 pub(crate) mod utils;
 
+use std::fs::File;
 use std::io::IsTerminal;
+use std::path::PathBuf;
+use std::sync::Mutex;
 
 use async_once::AsyncOnce;
+use chrono::Utc;
 use clap::builder::NonEmptyStringValueParser;
 use clap::error::ErrorKind;
 use clap::{arg, command, Args, CommandFactory, Parser, Subcommand, ValueEnum};
+use color_eyre::config::{HookBuilder, Theme};
 use color_eyre::eyre::{eyre, Result, WrapErr};
+use color_eyre::owo_colors::OwoColorize;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use prettytable::format::FormatBuilder;
 use prettytable::{row, Cell, Row, Table};
+use tracing::{debug, info, instrument};
 
-use crate::common::MCDL_VERSION;
+use crate::common::{MCDL_VERSION, PROJ_DIRS};
+use crate::types::meta::AsArgs;
 use crate::types::version::{GameVersionList, VersionNumber};
 use crate::utils::macros::enum_to_string;
 use crate::utils::net::get_version_manifest;
@@ -31,7 +39,10 @@ lazy_static! {
             .await
             .expect("Failed to get version manifest")
     });
+    static ref LOG_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("log");
 }
+
+/* cli */
 
 #[doc(hidden)]
 #[derive(Parser, Debug)]
@@ -145,6 +156,7 @@ enum_to_string!(WhatEnum {
     Config,
 });
 
+#[instrument(level = "debug", err, ret)]
 fn validate_version_number(v: &str) -> Result<VersionNumber> {
     // lol
     let valid_versions: Vec<VersionNumber> =
@@ -167,18 +179,38 @@ fn validate_version_number(v: &str) -> Result<VersionNumber> {
     }
 }
 
+/* end cli */
+
+/* main */
+
+#[instrument(err(Debug), ret(level = "debug"))]
 #[tokio::main]
 async fn main() -> Result<()> {
-    color_eyre::install()?;
+    let log_name = format!("mcdl-{}.log", Utc::now().format("%Y%m%d-%H%M%S"));
+    let log_path = LOG_BASE_DIR.join(log_name);
+
+    // set up tracing
+    install_tracing(&log_path)?;
+    info!("Logging to {}", log_path.display());
+    println!("=> Logging to {}\n", log_path.display().bold());
+
+    // install color_eyre
+    HookBuilder::default()
+        .display_env_section(true)
+        .theme(Theme::new())
+        .install()?;
+
+    info!("Args: {}", std::env::args().collect_vec().as_args_string());
 
     // lol again
     let cli = tokio::task::spawn_blocking(Cli::parse).await?;
+    debug!(?cli);
 
     match cli.action {
         Action::List { filter, installed } => list_impl(filter, installed).await?,
         Action::Info { version } => info_impl(version).await?,
         Action::Install { version } => install_impl(version).await?,
-        Action::Uninstall { version } => uninstall_impl(version).await?,
+        Action::Uninstall { version } => uninstall_impl(version)?,
         Action::Run { version } => run_impl(version).await?,
         Action::Locate { what } => locate_impl(what)?,
     }
@@ -186,8 +218,38 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+fn install_tracing(path: &PathBuf) -> Result<()> {
+    use tracing_error::ErrorLayer;
+    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::{fmt, EnvFilter};
+
+    std::fs::create_dir_all(LOG_BASE_DIR.as_path())?;
+    let file = File::create(path)?;
+
+    let fmt_layer = fmt::layer()
+        .with_ansi(false)
+        .with_timer(fmt::time::uptime())
+        .with_writer(Mutex::new(file));
+    let filter_layer =
+        EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new("mcdl=debug"))?;
+
+    tracing_subscriber::registry()
+        .with(filter_layer)
+        .with(fmt_layer)
+        .with(ErrorLayer::default())
+        .init();
+
+    Ok(())
+}
+
+/* end main */
+
+/* impls */
+
+#[instrument(err, ret(level = "debug"), skip(filter))]
 async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
     let filter = filter.unwrap_or_default();
+    debug!(?filter);
 
     let versions = MANIFEST
         .get()
@@ -213,11 +275,17 @@ async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
         .sorted()
         .collect_vec();
 
+    info!("Found {} matching versions", versions.len());
+
     if installed {
         // installed versions only, more info
+        info!("Filtering for installed versions");
+
         todo!();
     } else {
         // short info for all versions
+        info!("Filtering for all versions");
+
         if !std::io::stdout().is_terminal() {
             versions.iter().for_each(|v| println!("{}", v.id));
             return Ok(());
@@ -252,6 +320,7 @@ async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
     Ok(())
 }
 
+#[instrument(err, ret(level = "debug"))]
 async fn info_impl(version: VersionNumber) -> Result<()> {
     let version = MANIFEST
         .get()
@@ -275,6 +344,7 @@ async fn info_impl(version: VersionNumber) -> Result<()> {
     Ok(())
 }
 
+#[instrument(err, ret(level = "debug"), skip(versions))]
 async fn install_impl(versions: Option<Vec<VersionNumber>>) -> Result<()> {
     let manifest = MANIFEST.get().await;
     let game_versions = &manifest.versions;
@@ -318,14 +388,14 @@ async fn install_impl(versions: Option<Vec<VersionNumber>>) -> Result<()> {
     Ok(())
 }
 
-async fn uninstall_impl(version: String) -> Result<()> {
-    app::uninstall_instance(version.parse()?)
-        .await
-        .wrap_err("Error while uninstalling instance")?;
+#[instrument(err, ret(level = "debug"))]
+fn uninstall_impl(version: String) -> Result<()> {
+    app::uninstall_instance(version.parse()?).wrap_err("Error while uninstalling instance")?;
 
     Ok(())
 }
 
+#[instrument(err, ret(level = "debug"))]
 async fn run_impl(version: String) -> Result<()> {
     app::run_instance(version.parse()?)
         .await
@@ -334,6 +404,7 @@ async fn run_impl(version: String) -> Result<()> {
     Ok(())
 }
 
+#[instrument(err, ret(level = "debug"))]
 fn locate_impl(what: WhatEnum) -> Result<()> {
     // TODO: pass directly
     app::locate(&what.to_string())
@@ -341,3 +412,5 @@ fn locate_impl(what: WhatEnum) -> Result<()> {
 
     Ok(())
 }
+
+/* end impls */
