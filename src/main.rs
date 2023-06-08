@@ -184,7 +184,7 @@ fn validate_version_number(v: &str) -> Result<VersionNumber> {
 
 /* main */
 
-#[instrument(err(Debug), ret(level = "debug"))]
+#[instrument(err(Debug), ret)]
 #[tokio::main]
 async fn main() -> Result<()> {
     let log_name = format!("mcdl-{}.log", Utc::now().format("%Y%m%d-%H%M%S"));
@@ -229,7 +229,8 @@ fn install_tracing(path: &PathBuf) -> Result<()> {
 
     let fmt_layer = fmt::layer()
         .with_ansi(false)
-        .with_timer(fmt::time::uptime())
+        // .with_timer(fmt::time::uptime())
+        .with_thread_ids(true)
         .with_writer(Mutex::new(file));
     let filter_layer =
         EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new("mcdl=debug"))?;

@@ -91,7 +91,7 @@ impl InstanceSettings {
         }
     }
 
-    #[instrument]
+    #[instrument(err)]
     pub async fn from_file<P: AsRef<Path> + Debug>(path: P) -> Result<Self> {
         debug!("Reading instance settings");
 
@@ -111,7 +111,7 @@ impl InstanceSettings {
         Ok(settings)
     }
 
-    #[instrument]
+    #[instrument(err, ret(level = "debug"), skip(self))]
     pub async fn save<P: AsRef<Path> + Debug>(&self, path: P) -> Result<()> {
         debug!("Saving instance settings");
 
@@ -132,6 +132,7 @@ impl InstanceSettings {
             path.display()
         ))?;
 
+        debug!(settings = ?self, "Saved instance settings");
         Ok(())
     }
 }
@@ -173,7 +174,7 @@ pub(crate) struct AppMeta {
 }
 
 impl AppMeta {
-    #[instrument]
+    #[instrument(err)]
     pub fn from_file<P: AsRef<Path> + Debug>(path: P) -> Result<Self> {
         debug!("Reading meta");
 
@@ -187,7 +188,7 @@ impl AppMeta {
         Ok(meta)
     }
 
-    #[instrument(skip(self))]
+    #[instrument(err, ret(level = "debug"), skip(self))]
     pub fn save<P: AsRef<Path> + Debug>(&self, path: P) -> Result<()> {
         debug!("Saving meta");
 

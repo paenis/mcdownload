@@ -14,7 +14,7 @@ use parking_lot::Mutex;
 use tokio::fs;
 use tokio::process::Command;
 use tokio::task::JoinSet;
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, info, instrument, warn, error};
 
 use crate::common::{LOG_BASE_DIR, PROJ_DIRS, REQWEST_CLIENT};
 use crate::types::meta::{AppMeta, InstanceMeta, InstanceSettings};
@@ -164,11 +164,11 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
                 "Skipping JRE install"
             );
             continue;
-        } 
+        }
 
         // otherwise, install it
         jres_installed.push(jre_version);
-        
+
         info!(
             jre = jre_version,
             version = version_display,
@@ -286,7 +286,7 @@ pub(crate) fn uninstall_instance(id: VersionNumber) -> Result<()> {
     Ok(())
 }
 
-#[instrument(err, ret(level = "debug"))]
+#[instrument(err, ret(level = "debug"), skip(id))]
 pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
     let instance_path = INSTANCE_BASE_DIR.join(id.to_string());
 
@@ -296,11 +296,13 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
 
     let settings =
         InstanceSettings::from_file(INSTANCE_SETTINGS_BASE_DIR.join(format!("{id}.toml"))).await?;
+    debug!(?settings, "Loaded instance settings");
 
     // check if the JRE is installed and install it if not
     let jre_version = settings.java.version;
 
     if !META!().jre_installed(&jre_version) {
+        debug!(jre = jre_version, "Installing JRE due to config change");
         let pb = ProgressBar::new_spinner();
         pb.set_style(PB_STYLE.clone());
         pb.set_prefix(format!("JRE {jre_version} for {id}"));
@@ -336,20 +338,24 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
 
     cmd.args(&args);
 
+    debug!("Starting server with command line: {java} {args}", java = java_path.display(), args = args_string);
     let mut child = cmd.spawn().wrap_err(format!(
         "Failed to start server with command line: {java} {args}",
         java = java_path.display(),
         args = args_string
     ))?;
+    info!("Started server");
     let status = child.wait().await.wrap_err("Failed to wait for server")?;
 
     if !status.success() {
+        error!(?status, "Server exited with an error");
         let upload = Confirm::new()
             .with_prompt("Server exited with an error. Would you like to upload the crash report?")
             .default(false)
             .interact()?;
 
         if upload {
+            debug!("Uploading crash report");
             let crash_reports = instance_path.join("crash-reports");
 
             let latest = std::fs::read_dir(crash_reports)
@@ -381,6 +387,7 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
                     "Crash report uploaded to {}",
                     response["url"].as_str().unwrap()
                 );
+                debug!(url = response["url"].as_str().unwrap(), "Crash report uploaded");
             } else {
                 return Err(eyre!(
                     "Failed to upload crash report: {}",
