@@ -24,6 +24,7 @@ Requires a system OpenSSL installation, or, if building with `--features vendore
 
 - [ ] types/meta
   - [ ] `Settings` struct
+    - [ ] configure certain paths, i.e. instance dir
     - [ ] global default java flags (maybe)
   - [x] manifest [#3][pull-3]
 - [ ] main
