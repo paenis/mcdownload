@@ -171,9 +171,18 @@ pub(crate) struct AppMeta {
     // keyed by id for now, possibly changed later to allow for multiple instances with the same version
     pub instances: HashMap<String, InstanceMeta>,
     pub installed_jres: HashSet<u8>, // String?
+    _path: PathBuf,
 }
 
 impl AppMeta {
+    pub fn new(path: PathBuf) -> Self {
+        Self {
+            instances: HashMap::new(),
+            installed_jres: HashSet::new(),
+            _path: path,
+        }
+    }
+
     #[instrument(err)]
     pub fn from_file<P: AsRef<Path> + Debug>(path: P) -> Result<Self> {
         debug!("Reading meta");
@@ -188,8 +197,12 @@ impl AppMeta {
         Ok(meta)
     }
 
+    pub fn save(&self) -> Result<()> {
+        self.save_at(&self._path)
+    }
+
     #[instrument(err, ret(level = "debug"), skip(self))]
-    pub fn save<P: AsRef<Path> + Debug>(&self, path: P) -> Result<()> {
+    pub fn save_at<P: AsRef<Path> + Debug>(&self, path: P) -> Result<()> {
         debug!("Saving meta");
 
         let path = path.as_ref();
@@ -205,11 +218,14 @@ impl AppMeta {
     #[instrument(skip(path))]
     pub fn read_or_create<P: AsRef<Path> + Debug>(path: P) -> Self {
         let path = path.as_ref();
-        if let Ok(meta) = Self::from_file(path) {
+        if let Ok(mut meta) = Self::from_file(path) {
+            debug!("Meta read successfully");
+            meta._path = path.to_path_buf(); // this shouldn't be necessary, but it's here just in case
             meta
         } else {
-            let meta = Self::default();
-            meta.save(path).expect("Error saving meta"); // TODO: handle error
+            debug!("Meta not found, creating");
+            let meta = Self::new(path.to_path_buf());
+            meta.save().expect("Error saving meta"); // TODO: handle error
             meta
         }
     }

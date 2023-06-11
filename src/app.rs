@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::Bytes;
@@ -10,14 +9,13 @@ use dialoguer::Confirm;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use parking_lot::Mutex;
 use tokio::fs;
 use tokio::process::Command;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::common::{LOG_BASE_DIR, PROJ_DIRS, REQWEST_CLIENT};
-use crate::types::meta::{AppMeta, InstanceMeta, InstanceSettings};
+use crate::common::{LOG_BASE_DIR, META, PROJ_DIRS, REQWEST_CLIENT};
+use crate::types::meta::{InstanceMeta, InstanceSettings};
 use crate::types::version::{GameVersion, VersionMetadata, VersionNumber};
 use crate::utils::net::{download_jre, get_version_metadata};
 
@@ -25,9 +23,6 @@ lazy_static! {
     static ref INSTANCE_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("instance");
     static ref JRE_BASE_DIR: PathBuf = PROJ_DIRS.data_local_dir().join("jre");
     static ref INSTANCE_SETTINGS_BASE_DIR: PathBuf = PROJ_DIRS.config_local_dir().join("instance");
-    static ref META_PATH: PathBuf = PROJ_DIRS.data_local_dir().join("meta.mpk");
-    static ref META: Arc<Mutex<AppMeta>> =
-        Arc::new(Mutex::new(AppMeta::read_or_create(META_PATH.as_path())));
     static ref PB_STYLE: ProgressStyle = ProgressStyle::with_template(
         "{prefix:.bold.blue.bright} {spinner:.green.bright} {wide_msg}",
     )
@@ -147,7 +142,7 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
             let mut meta = cloned_meta.lock();
             meta.add_instance(instance_meta);
-            meta.save(META_PATH.as_path())?;
+            meta.save()?;
 
             pb_server.finish_with_message("Done!");
 
@@ -228,7 +223,7 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 
     pb.set_message("Updating metadata...");
     META!().add_jre(*major_version);
-    META!().save(META_PATH.as_path())?;
+    META!().save()?;
 
     pb.finish_with_message("Done!");
     info!("Installed JRE");
@@ -273,12 +268,12 @@ pub(crate) fn uninstall_instance(id: VersionNumber) -> Result<()> {
             .get_mut(&id.to_string())
             .unwrap()
             .remove_file(path);
-        META!().save(META_PATH.as_path())?;
+        META!().save()?;
     }
 
     pb.set_message("Updating metadata...");
     META!().remove_instance(&id.to_string());
-    META!().save(META_PATH.as_path())?;
+    META!().save()?;
 
     // bonus: remove jre if it's not used by any other instances
 

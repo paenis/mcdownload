@@ -67,7 +67,7 @@ where T: Serialize + for<'de> Deserialize<'de> {
         SystemTime::now() + Duration::from_secs(CACHE_EXPIRATION_TIME),
     );
     cached_response.save(&cache_file).await?;
-    debug!("Saved cached response",);
+    debug!("Saved cached response");
 
     Ok(response)
 }

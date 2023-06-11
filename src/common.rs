@@ -34,4 +34,9 @@ lazy_static! {
         directories::ProjectDirs::from("com.github", "paenis", env!("CARGO_PKG_NAME"))
             .expect("failed to get project directories");
     pub static ref LOG_BASE_DIR: std::path::PathBuf = PROJ_DIRS.data_local_dir().join("log");
+    static ref META_PATH: std::path::PathBuf = PROJ_DIRS.data_local_dir().join("meta.mpk");
+    pub(crate) static ref META: std::sync::Arc<parking_lot::Mutex<crate::types::meta::AppMeta>> =
+        std::sync::Arc::new(parking_lot::Mutex::new(
+            crate::types::meta::AppMeta::read_or_create(META_PATH.as_path())
+        ));
 }

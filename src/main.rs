@@ -26,7 +26,7 @@ use prettytable::format::FormatBuilder;
 use prettytable::{row, Cell, Row, Table};
 use tracing::{debug, info, instrument};
 
-use crate::common::{LOG_BASE_DIR, MCDL_VERSION};
+use crate::common::{LOG_BASE_DIR, MCDL_VERSION, META, PROJ_DIRS};
 use crate::types::meta::AsArgs;
 use crate::types::version::{GameVersionList, VersionNumber};
 use crate::utils::macros::enum_to_string;
@@ -283,7 +283,28 @@ async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
         // installed versions only, more info
         info!("Filtering for installed versions");
 
-        todo!();
+        let installed_instances = &META.lock().instances;
+        let mut table = Table::new();
+        table.set_format(
+            FormatBuilder::new()
+                .column_separator(' ')
+                .borders(' ')
+                .padding(1, 1)
+                .build(),
+        );
+
+        table.set_titles(row![b => "ID", "Version", "Type", "JRE"]);
+
+        for (id, instance) in installed_instances {
+            let version = versions.iter().find(|v| v.id == instance.id).unwrap();
+            let location = PROJ_DIRS.data_local_dir().join("instances").join(id);
+
+            table.add_row(row![id, version.id, version.release_type, instance.jre]);
+            table.add_row(row![H4->format!("{} {}","Location:".bold(), location.display())]);
+            table.add_empty_row();
+        }
+
+        table.printstd();
     } else {
         // short info for all versions
         info!("Filtering for all versions");
