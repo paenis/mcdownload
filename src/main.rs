@@ -1,7 +1,5 @@
 //! A tool for managing Minecraft server versions
 
-#![warn(rustdoc::all)]
-
 pub(crate) mod app;
 pub(crate) mod common;
 pub(crate) mod types;
@@ -300,7 +298,7 @@ async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
             let location = PROJ_DIRS.data_local_dir().join("instances").join(id);
 
             table.add_row(row![id, version.id, version.release_type, instance.jre]);
-            table.add_row(row![H4->format!("{} {}","Location:".bold(), location.display())]);
+            table.add_row(row![H4->format!("{} {}", "Location:".bold(), location.display())]);
             table.add_empty_row();
         }
 
