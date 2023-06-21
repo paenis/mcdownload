@@ -298,27 +298,21 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
 
     if !META!().jre_installed(&jre_version) {
         debug!(jre = jre_version, "Installing JRE due to config change");
-        let pb = ProgressBar::new_spinner();
-        pb.set_style(PB_STYLE.clone());
-        pb.set_prefix(format!("JRE {jre_version} for {id}"));
+        let pb = ProgressBar::new_spinner()
+            .with_style(PB_STYLE.clone())
+            .with_prefix(format!("JRE {jre_version} for {id}"));
         pb.enable_steady_tick(Duration::from_millis(100));
 
         install_jre(&jre_version, &pb).await?;
-
-        // update the instance metadata
-        META!()
-            .instances
-            .get_mut(&id.to_string())
-            .ok_or_else(|| eyre!("Instance metadata not found for {id}"))?
-            .jre = jre_version;
     }
 
-    let java_path = get_java_path(jre_version);
-
-    let mut cmd = Command::new(&java_path);
-
-    cmd.current_dir(&instance_path);
-    cmd.kill_on_drop(true);
+    // make sure JRE version is correct
+    META!()
+        .instances
+        .get_mut(&id.to_string())
+        .ok_or_else(|| eyre!("Instance metadata not found for {id}"))?
+        .jre = jre_version;
+    META!().save()?;
 
     // add all arguments
     let mut args: Vec<OsString> = vec![];
@@ -331,21 +325,26 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
         .map(|s| shell_escape::escape(Cow::Borrowed(s.to_str().unwrap())))
         .join(" ");
 
-    cmd.args(&args);
+    let java_path = get_java_path(jre_version);
 
     debug!(
         "Starting server with command line: {java} {args}",
         java = java_path.display(),
         args = args_string
     );
-    let mut child = cmd.spawn().wrap_err(format!(
-        "Failed to start server with command line: {java} {args}",
-        java = java_path.display(),
-        args = args_string
-    ))?;
+    let mut child = Command::new(&java_path)
+        .current_dir(&instance_path)
+        .kill_on_drop(true)
+        .args(&args)
+        .spawn()
+        .wrap_err(format!(
+            "Failed to start server with command line: {java} {args}",
+            java = java_path.display(),
+            args = args_string
+        ))?;
     info!("Started server");
-    let status = child.wait().await.wrap_err("Failed to wait for server")?;
 
+    let status = child.wait().await.wrap_err("Failed to wait for server")?;
     if !status.success() {
         error!(?status, "Server exited with an error");
         let upload = Confirm::new()

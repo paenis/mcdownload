@@ -202,7 +202,6 @@ async fn main() -> Result<()> {
 
     // lol again
     let cli = tokio::task::spawn_blocking(Cli::parse).await?;
-    println!("=> Logging to {}\n", log_path.display().bold());
     debug!(?cli);
 
     match cli.action {
@@ -282,6 +281,17 @@ async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
         info!("Filtering for installed versions");
 
         let installed_instances = &META.lock().instances;
+        let filtered_instances = installed_instances
+            .iter()
+            .filter(|(_, i)| versions.iter().any(|v| v.id == i.id))
+            .collect_vec();
+
+        info!("Found {} installed versions", filtered_instances.len());
+        if filtered_instances.is_empty() {
+            println!("No matching versions installed");
+            return Ok(());
+        }
+
         let mut table = Table::new();
         table.set_format(
             FormatBuilder::new()
@@ -293,7 +303,7 @@ async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
 
         table.set_titles(row![b => "ID", "Version", "Type", "JRE"]);
 
-        for (id, instance) in installed_instances {
+        for (id, instance) in filtered_instances {
             let version = versions.iter().find(|v| v.id == instance.id).unwrap();
             let location = PROJ_DIRS.data_local_dir().join("instances").join(id);
 
