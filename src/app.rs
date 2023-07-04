@@ -447,12 +447,22 @@ mod tests {
             if path.exists() {
                 std::fs::remove_dir_all(path).unwrap();
             }
+
+            META!().remove_jre(&8);
+            META!().save().unwrap();
         }
+
+        assert!(!META!().jre_installed(&8), "JRE 8 is already installed");
 
         install_jre(&8, &ProgressBar::hidden()).await.unwrap();
 
-        assert!(get_java_path(8).exists(), "{:?}", get_java_path(8));
+        assert!(
+            get_java_path(8).exists(),
+            "{:?} does not exist",
+            get_java_path(8)
+        );
         assert!(META!().remove_jre(&8), "Failed to remove JRE");
+        assert!(META!().save().is_ok(), "Failed to save metadata");
     }
 }
 

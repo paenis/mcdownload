@@ -3,20 +3,16 @@ use std::time::{Duration, SystemTime};
 
 use bytes::Bytes;
 use color_eyre::eyre::{eyre, Result};
-use directories::ProjectDirs;
 use lazy_static::lazy_static;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, instrument};
 
-use crate::common::REQWEST_CLIENT;
+use crate::common::{PROJ_DIRS, REQWEST_CLIENT};
 use crate::types::net::CachedResponse;
 use crate::types::version::{GameVersion, GameVersionList, VersionMetadata};
 
 lazy_static! {
-    static ref PROJ_DIRS: ProjectDirs =
-        ProjectDirs::from("com.github", "paenis", env!("CARGO_PKG_NAME"))
-            .expect("failed to get project directories");
     static ref CACHE_BASE_DIR: PathBuf = PROJ_DIRS.cache_dir().to_path_buf();
 }
 
@@ -54,7 +50,13 @@ pub(crate) async fn get_maybe_cached<T>(url: &str, cache_file: &PathBuf) -> Resu
 where T: Serialize + for<'de> Deserialize<'de> {
     if let Ok(cached) = CachedResponse::<T>::from_file(&cache_file).await {
         if !cached.is_expired() {
-            debug!("Using cached response");
+            let mut msg = "Using cached response".to_string();
+            if let Ok(elapsed) = cached.expires.duration_since(SystemTime::now()) {
+                let (minutes, seconds) = (elapsed.as_secs() / 60, elapsed.as_secs() % 60);
+                let milis = elapsed.subsec_millis();
+                msg.push_str(&format!(" expiring in {minutes}:{seconds}.{milis:03}"));
+            }
+            debug!("{msg}");
             return Ok(cached.data);
         }
     }
