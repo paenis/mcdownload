@@ -4,3 +4,6 @@
 /libraries
 /logs
 /versions
+
+/.idea
+/.vscode
