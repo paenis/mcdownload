@@ -305,7 +305,7 @@ async fn list_impl(filter: Option<ListFilter>, installed: bool) -> Result<()> {
 
         for (id, instance) in filtered_instances {
             let version = versions.iter().find(|v| v.id == instance.id).unwrap();
-            let location = PROJ_DIRS.data_local_dir().join("instances").join(id);
+            let location = PROJ_DIRS.data_local_dir().join("instance").join(id);
 
             table.add_row(row![id, version.id, version.release_type, instance.jre]);
             table.add_row(row![H4->format!("{} {}", "Location:".bold(), location.display())]);

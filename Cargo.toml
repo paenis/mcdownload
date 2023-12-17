@@ -8,48 +8,48 @@ build = "build.rs"
 
 [dependencies]
 async_once = "0.2.6"
-bytes = "1.4.0"
-chrono = { version = "0.4.26", features = ["serde"] }
-clap = { version = "4.3.19", features = ["derive"] }
+bytes = "1.5.0"
+chrono = { version = "0.4.31", features = ["serde"] }
+clap = { version = "4.4.11", features = ["derive"] }
 color-eyre = "0.6.2"
 derive_more = { version = "0.99.17", default-features = false, features = ["constructor", "display"] }
-dialoguer = { version = "0.10.4", default-features = false }
+dialoguer = { version = "0.11.0", default-features = false }
 directories = "5.0.1"
-indicatif = "0.17.5"
-itertools = "0.11.0"
+indicatif = "0.17.7"
+itertools = "0.12.0"
 lazy_static = "1.4.0"
-openssl = { version = "0.10.55", optional = true }
+openssl = { version = "0.10.61", optional = true }
 parking_lot = "0.12.1"
 paste = "1.0.14"
 prettytable-rs = { version = "0.10.0", default-features = false }
-regex = "1.9.1"
-reqwest = { version = "0.11.18", features = ["json"] }
+regex = "1.10.2"
+reqwest = { version = "0.11.22", features = ["json"] }
 rmp-serde = "1.1.2"
-serde = { version = "1.0.183", features = ["derive"] }
-serde_json = "1.0.103"
-serde_with = "3.1.0"
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
+serde_with = "3.4.0"
 shell-escape = "0.1.5"
-tokio = { version = "1.29.1", features = ["rt-multi-thread", "macros", "fs", "process"] }
-toml = { version = "0.7.6", features = ["preserve_order"] }
-tracing = "0.1.37"
+tokio = { version = "1.35.0", features = ["rt-multi-thread", "macros", "fs", "process"] }
+toml = { version = "0.8.8", features = ["preserve_order"] }
+tracing = "0.1.40"
 tracing-error = "0.2.0"
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 [dev-dependencies]
 assert_cmd = "2.0.12"
-predicates = "3.0.3"
+predicates = "3.0.4"
 rand = "0.8.5"
 scopeguard = { version = "1.2.0", default-features = false }
 
 [build-dependencies]
-vergen = { version = "8.2.4", features = ["git", "gitcl", "cargo"] }
+vergen = { version = "8.2.6", features = ["git", "gitcl", "cargo"] }
 
 [target.'cfg(windows)'.dependencies]
 zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 
 [target.'cfg(unix)'.dependencies]
-flate2 = "1.0.26"
-tar = "0.4.39"
+flate2 = "1.0.28"
+tar = "0.4.40"
 
 [features]
 vendored-openssl = ["openssl/vendored"]
