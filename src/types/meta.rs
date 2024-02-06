@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use color_eyre::eyre::{Result, WrapErr};
 use itertools::Itertools;
@@ -134,6 +135,27 @@ impl InstanceSettings {
 
         debug!(settings = ?self, "Saved instance settings");
         Ok(())
+    }
+}
+
+enum ServerType {
+    Vanilla,
+    Paper,
+    Fabric,
+    Forge,
+}
+
+impl FromStr for ServerType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "vanilla" => Ok(ServerType::Vanilla),
+            "paper" => Ok(ServerType::Paper),
+            "fabric" => Ok(ServerType::Fabric),
+            "forge" => Ok(ServerType::Forge),
+            _ => Err(format!("Invalid server type: {}", s)),
+        }
     }
 }
 
