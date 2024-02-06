@@ -86,7 +86,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.build }}-${{ env.PROFILE }}
+          name: ${{ matrix.build }}.${{ env.PROFILE }}
           path: |
             ${{ env.TARGET_DIR }}/${{ env.BUILD_DIR }}/mcdl*
             !${{ env.TARGET_DIR }}/${{ env.BUILD_DIR }}/mcdl.d
