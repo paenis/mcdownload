@@ -1,14 +1,14 @@
 # heavily "inspired" by ripgrep's ci.yml
 
 name: ci
-on: 
+on:
   push:
     branches: [main]
     paths-ignore:
-      - '**.md'
+      - "**.md"
   pull_request:
     paths-ignore:
-      - '**.md'
+      - "**.md"
   workflow_dispatch:
 
 jobs:
@@ -22,60 +22,51 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        toolchain: [stable, nightly]
         build:
-          [linux-stable, linux-beta, linux-nightly, linux-nightly-musl, linux-nightly-aarch64, linux-nightly-aarch64-musl, win-msvc, win-gnu]
+          [
+            linux,
+            linux-nightly-musl,
+            linux-nightly-aarch64,
+            linux-nightly-aarch64-musl,
+            win-msvc,
+            win-gnu,
+          ]
         include:
-          - build: linux-stable
+          - build: linux
             os: ubuntu-22.04
-            rust: stable
-          - build: linux-beta
-            os: ubuntu-22.04
-            rust: beta
-          - build: linux-nightly
-            os: ubuntu-22.04
-            rust: nightly
           - build: linux-nightly-musl
             os: ubuntu-22.04
-            rust: nightly
+            toolchain: nightly # TODO: can't overwrite
             target: x86_64-unknown-linux-musl
-          # - build: nightly-armv6
-          #   os: ubuntu-22.04
-          #   rust: nightly
-          #   target: arm-unknown-linux-gnueabihf
           - build: linux-nightly-aarch64
             os: ubuntu-22.04
-            rust: nightly
+            toolchain: nightly
             target: aarch64-unknown-linux-gnu
           - build: linux-nightly-aarch64-musl
             os: ubuntu-22.04
-            rust: nightly
+            toolchain: nightly
             target: aarch64-unknown-linux-musl
           - build: win-msvc
             os: windows-2022
-            rust: nightly
           - build: win-gnu
             os: windows-2022
-            rust: nightly-x86_64-gnu
+            toolchain: nightly-x86_64-gnu
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install packages (Ubuntu)
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends --reinstall \
-            openssl libssl-dev openssl musl-tools
+          sudo apt-get install -y --no-install-recommends --reinstall musl-tools
           export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig/
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ matrix.rust }}
-
-      - name: Cache
-        if: matrix.target == ''
-        uses: Swatinem/rust-cache@v2
+          toolchain: ${{ matrix.toolchain }}
 
       - name: Use Cross
         if: matrix.target != ''
@@ -94,7 +85,7 @@ jobs:
 
       - name: Upload debug artifacts
         uses: actions/upload-artifact@v3
-        with: 
+        with:
           name: ${{ matrix.build }}.debug
           path: |
             ${{ env.TARGET_DIR }}/debug/mcdl*
