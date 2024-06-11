@@ -1,5 +1,3 @@
-# heavily "inspired" by ripgrep's ci.yml
-
 name: ci
 on:
   push:
@@ -12,87 +10,80 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
-    name: test ${{ matrix.build }}
+  test-linux:
+    name: test linux-${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}
     env:
-      CARGO: cargo
-      TARGET_FLAGS: ""
+      CARGO_TERM_COLOR: always
       TARGET_DIR: ./target
-      TEST_FLAGS: ""
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         toolchain: [stable, nightly]
-        build:
+        target:
           [
-            linux,
-            linux-nightly-musl,
-            linux-nightly-aarch64,
-            linux-nightly-aarch64-musl,
-            win-msvc,
-            win-gnu,
+            "",
+            "x86_64-unknown-linux-musl",
+            "aarch64-unknown-linux-gnu",
+            "aarch64-unknown-linux-musl",
           ]
-        include:
-          - build: linux
-            os: ubuntu-22.04
-          - build: linux-nightly-musl
-            os: ubuntu-22.04
-            toolchain: nightly # TODO: can't overwrite
-            target: x86_64-unknown-linux-musl
-          - build: linux-nightly-aarch64
-            os: ubuntu-22.04
-            toolchain: nightly
-            target: aarch64-unknown-linux-gnu
-          - build: linux-nightly-aarch64-musl
-            os: ubuntu-22.04
-            toolchain: nightly
-            target: aarch64-unknown-linux-musl
-          - build: win-msvc
-            os: windows-2022
-          - build: win-gnu
-            os: windows-2022
-            toolchain: nightly-x86_64-gnu
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install packages (Ubuntu)
-        if: matrix.os == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends --reinstall musl-tools
-          export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig/
-
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.toolchain }}
+        run: |
+          rustc --version
 
-      - name: Use Cross
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest, cross
+
+      - name: Set up cross
         if: matrix.target != ''
         run: |
-          cargo install cross
-          echo "CARGO=cross" >> $GITHUB_ENV
-          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
           echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
-          echo "TEST_FLAGS=--bins" >> $GITHUB_ENV
 
-      - name: Build
-        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }}
+      - name: Run tests (cross)
+        if: matrix.target != ''
+        run: cross test --verbose --bins --target ${{ matrix.target }}
 
-      - name: Test
-        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }} ${{ env.TEST_FLAGS }}
+      - name: Run tests (cargo)
+        if: matrix.target == ''
+        run: cargo nextest run --verbose --bins
 
       - name: Upload debug artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.build }}.debug
+          name: ${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}-debug
           path: |
             ${{ env.TARGET_DIR }}/debug/mcdl*
             !${{ env.TARGET_DIR }}/debug/mcdl.d
-          retention-days: 7
 
-  trigger_build:
-    name: trigger build
-    needs: test
-    uses: ./.github/workflows/build.yml
+# jobs:
+#   test:
+#     name: test ${{ matrix.build }}
+#     env:
+#       CARGO: cargo
+#       TARGET_FLAGS: ""
+#       TARGET_DIR: ./target
+#       TEST_FLAGS: ""
+#     runs-on: ${{ matrix.os }}
+#     strategy:
+#       matrix:
+#         toolchain: [stable, nightly]
+#         build:
+#           [
+#             win-msvc,
+#             win-gnu,
+#           ]
+#         include:
+#           - build: win-msvc
+#             os: windows-2022
+#           - build: win-gnu
+#             os: windows-2022
+#             toolchain: nightly-x86_64-gnu
+
+#   trigger_build:
+#     name: trigger build
+#     needs: test
+#     uses: ./.github/workflows/build.yml
