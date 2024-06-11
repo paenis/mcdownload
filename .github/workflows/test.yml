@@ -14,7 +14,7 @@ jobs:
     name: test linux-${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}
     env:
       CARGO_TERM_COLOR: always
-      TARGET_DIR: ./target
+      TARGET_DIR: ${{ github.workspace }}/target
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -31,32 +31,28 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        run: |
-          rustc --version
+        run: rustc --version
 
       - name: Add target
         if: matrix.target != ''
-        run: |
-          rustup target add ${{ matrix.target }}
+        run: rustup target add ${{ matrix.target }}
 
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-nextest #, cross
+          tool: cargo-nextest
 
-      - name: Set up cross
-        # if: matrix.target != ''
+      - name: Set up cross-compilation
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu musl-tools
-          echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+          curl -L https://musl.cc/aarch64-linux-musl-cross.tgz | tar -xz -C /usr/local
+          echo "/usr/local/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
 
-      # - name: Run tests (cross)
-      #   if: matrix.target != ''
-      #   run: cross test --verbose --bins --target ${{ matrix.target }}
-
-      - name: Run tests (cargo)
-        # if: matrix.target == ''
+      - name: Run tests
         run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }}
+
+      - if: matrix.target != ''
+        run: echo "TARGET_DIR=${{ github.workspace }}/target/${{ matrix.target }}" >> $GITHUB_ENV
 
       - name: Upload debug artifacts
         uses: actions/upload-artifact@v3
