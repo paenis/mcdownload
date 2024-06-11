@@ -45,8 +45,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu musl-tools
-          curl -L https://musl.cc/aarch64-linux-musl-cross.tgz | tar -xz -C /usr/local
-          echo "/usr/local/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
+          curl -L https://musl.cc/aarch64-linux-musl-cross.tgz | tar -xz -C ${{ github.workspace }}
+          echo "${{ github.workspace }}/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
 
       - name: Run tests
         run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }}
