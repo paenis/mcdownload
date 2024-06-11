@@ -34,6 +34,11 @@ jobs:
         run: |
           rustc --version
 
+      - name: Add target
+        if: matrix.target != ''
+        run: |
+          rustup target add ${{ matrix.target }}
+
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest #, cross
