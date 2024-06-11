@@ -9,7 +9,6 @@ jobs:
         CARGO: cargo
         TARGET_FLAGS: ""
         TARGET_DIR: ./target
-        OTHER_FLAGS: ${{ matrix.flags }}
         PROFILE: ${{ matrix.profile }}
         BUILD_DIR: ${{ matrix.profile != 'dev' && matrix.profile || 'debug' }}
     runs-on: ${{ matrix.os }}
@@ -33,22 +32,18 @@ jobs:
           #   os: ubuntu-22.04
           #   rust: nightly
           #   target: x86_64-unknown-linux-musl
-          #   flags: --features _cross
           # - build: linux-nightly-armv6
           #   os: ubuntu-22.04
           #   rust: nightly
           #   target: arm-unknown-linux-gnueabihf
-          #   flags: --features _cross
           - build: linux-nightly-aarch64
             os: ubuntu-22.04
             rust: nightly
             target: aarch64-unknown-linux-gnu
-            flags: --features _cross
           # - build: linux-nightly-aarch64-musl
           #   os: ubuntu-22.04
           #   rust: nightly
           #   target: aarch64-unknown-linux-musl
-          #   flags: --features _cross
           - build: win-msvc
             os: windows-2022
             rust: nightly
@@ -81,7 +76,7 @@ jobs:
           echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
 
       - name: Build
-        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }} --profile ${{ env.PROFILE }}
+        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }} --profile ${{ env.PROFILE }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3

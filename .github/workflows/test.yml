@@ -18,7 +18,6 @@ jobs:
       CARGO: cargo
       TARGET_FLAGS: ""
       TARGET_DIR: ./target
-      OTHER_FLAGS: ${{ matrix.flags }}
       TEST_FLAGS: ""
     runs-on: ${{ matrix.os }}
     strategy:
@@ -39,22 +38,18 @@ jobs:
             os: ubuntu-22.04
             rust: nightly
             target: x86_64-unknown-linux-musl
-            flags: --features _cross
           # - build: nightly-armv6
           #   os: ubuntu-22.04
           #   rust: nightly
           #   target: arm-unknown-linux-gnueabihf
-          #   flags: --features vendored-openssl --features rustls
           - build: linux-nightly-aarch64
             os: ubuntu-22.04
             rust: nightly
             target: aarch64-unknown-linux-gnu
-            flags: --features _cross
           - build: linux-nightly-aarch64-musl
             os: ubuntu-22.04
             rust: nightly
             target: aarch64-unknown-linux-musl
-            flags: --features _cross
           - build: win-msvc
             os: windows-2022
             rust: nightly
@@ -92,10 +87,10 @@ jobs:
           echo "TEST_FLAGS=--bins" >> $GITHUB_ENV
 
       - name: Build
-        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }}
+        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }}
 
       - name: Test
-        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }} ${{ env.OTHER_FLAGS }} ${{ env.TEST_FLAGS }}
+        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }} ${{ env.TEST_FLAGS }}
 
       - name: Upload debug artifacts
         uses: actions/upload-artifact@v3
