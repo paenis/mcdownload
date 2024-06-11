@@ -36,20 +36,22 @@ jobs:
 
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-nextest, cross
+          tool: cargo-nextest #, cross
 
       - name: Set up cross
-        if: matrix.target != ''
+        # if: matrix.target != ''
         run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu musl-tools
           echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
 
-      - name: Run tests (cross)
-        if: matrix.target != ''
-        run: cross test --verbose --bins --target ${{ matrix.target }}
+      # - name: Run tests (cross)
+      #   if: matrix.target != ''
+      #   run: cross test --verbose --bins --target ${{ matrix.target }}
 
       - name: Run tests (cargo)
-        if: matrix.target == ''
-        run: cargo nextest run --verbose --bins
+        # if: matrix.target == ''
+        run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }}
 
       - name: Upload debug artifacts
         uses: actions/upload-artifact@v3
