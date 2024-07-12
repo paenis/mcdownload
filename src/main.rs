@@ -185,7 +185,9 @@ fn validate_version_number(v: &str) -> Result<VersionNumber> {
 #[instrument(err(Debug), ret)]
 #[tokio::main]
 async fn main() -> Result<()> {
-    let log_name = format!("mcdl-{}.log", Utc::now().format("%Y%m%d-%H%M%S"));
+    let args = std::env::args().collect_vec();
+
+    let log_name = format!("mcdl-{}-{}.log", Utc::now().format("%Y%m%d-%H%M%S"), args[1]);
     let log_path = LOG_BASE_DIR.join(log_name);
 
     // set up tracing
@@ -198,7 +200,7 @@ async fn main() -> Result<()> {
         .theme(Theme::new())
         .install()?;
 
-    info!("Args: {}", std::env::args().collect_vec().as_args_string());
+    info!("Args: {}", args.as_args_string());
 
     // lol again
     let cli = tokio::task::spawn_blocking(Cli::parse).await?;
