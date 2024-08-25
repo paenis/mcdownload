@@ -146,8 +146,8 @@ pub(crate) async fn install_versions(versions: Vec<&GameVersion>) -> Result<()> 
 
             pb_server.finish_with_message("Done!");
 
-            debug!(version = thread_version_display, "Exiting install thread");
             info!(version = thread_version_display, "Installed version");
+            debug!(version = thread_version_display, "Exiting install thread");
             Ok::<(), eyre::Report>(())
         });
 
