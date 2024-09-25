@@ -49,7 +49,7 @@ jobs:
       #     echo "${{ github.workspace }}/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
 
       - name: Run tests
-        run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }}
+        run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }} --target-dir ${{ env.TARGET_DIR }}
 
       - if: matrix.target != ''
         run: echo "TARGET_DIR=${{ github.workspace }}/target/${{ matrix.target }}" >> $GITHUB_ENV
@@ -59,8 +59,13 @@ jobs:
         with:
           name: ${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}-debug
           path: |
-            ${{ env.TARGET_DIR }}/test/mcdl*
-            !${{ env.TARGET_DIR }}/test/mcdl.d
+            ${{ env.TARGET_DIR }}/debug/mcdl{,*}
+            !${{ env.TARGET_DIR }}/debug/mcdl.d
+
+  trigger-build:
+    name: trigger build
+    needs: test-linux
+    uses: ./.github/workflows/build.yml
 
 # jobs:
 #   test:
@@ -77,7 +82,8 @@ jobs:
 #         build:
 #           [
 #             win-msvc,
-#             win-gnu,
+#             win-gnu,test
+# test
 #           ]
 #         include:
 #           - build: win-msvc
