@@ -59,8 +59,8 @@ jobs:
         with:
           name: ${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}-debug
           path: |
-            ${{ env.TARGET_DIR }}/debug/mcdl*
-            !${{ env.TARGET_DIR }}/debug/mcdl.d
+            ${{ env.TARGET_DIR }}/test/mcdl*
+            !${{ env.TARGET_DIR }}/test/mcdl.d
 
 # jobs:
 #   test:
