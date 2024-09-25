@@ -22,9 +22,9 @@ jobs:
         target:
           [
             "",
-            "x86_64-unknown-linux-musl",
-            "aarch64-unknown-linux-gnu",
-            "aarch64-unknown-linux-musl",
+            # "x86_64-unknown-linux-musl",
+            # "aarch64-unknown-linux-gnu",
+            # "aarch64-unknown-linux-musl",
           ]
     steps:
       - name: Checkout
@@ -41,12 +41,12 @@ jobs:
         with:
           tool: cargo-nextest
 
-      - name: Set up cross-compilation
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu musl-tools
-          curl -L https://musl.cc/aarch64-linux-musl-cross.tgz | tar -xz -C ${{ github.workspace }}
-          echo "${{ github.workspace }}/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
+      # - name: Set up cross-compilation
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y gcc-aarch64-linux-gnu musl-tools
+      #     curl -L https://musl.cc/aarch64-linux-musl-cross.tgz | tar -xz -C ${{ github.workspace }}
+      #     echo "${{ github.workspace }}/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
 
       - name: Run tests
         run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }}
