@@ -187,7 +187,15 @@ fn validate_version_number(v: &str) -> Result<VersionNumber> {
 async fn main() -> Result<()> {
     let args = std::env::args().collect_vec();
 
-    let log_name = format!("mcdl-{}-{}.log", Utc::now().format("%Y%m%d-%H%M%S"), args[1]);
+    let log_name = format!(
+        "mcdl-{}{}.log",
+        Utc::now().format("%Y%m%d-%H%M%S"),
+        if args.len() > 1 {
+            format!("-{}", args[1])
+        } else {
+            String::new()
+        }
+    );
     let log_path = LOG_BASE_DIR.join(log_name);
 
     // set up tracing

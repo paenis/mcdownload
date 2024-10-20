@@ -70,9 +70,10 @@ macro_rules! parse_variants {
         impl std::str::FromStr for $enum_name {
             type Err = color_eyre::eyre::Report;
 
+            #[allow(irrefutable_let_patterns)]
             fn from_str(s: &str) -> color_eyre::eyre::Result<Self, Self::Err> {
                 $( if let Ok(v) = s.parse::<$ty>() {
-                    return Ok(Self::$variant(v));
+                    return Ok(Self::$variant(v.into()));
                 } else )* {
                     return Err(color_eyre::eyre::eyre!("Failed to parse input string: {s}"));
                 }
@@ -127,7 +128,7 @@ mod tests {
 
         parse_variants!(MyEnum {
             A as u8,
-            B as u64,
+            B as u16,
             C as String,
             D as u64,
         });
@@ -139,5 +140,9 @@ mod tests {
             MyEnum::C("hello".to_string())
         );
         // D is never parsed because C is a String
+        assert_eq!(
+            "1234567".parse::<MyEnum>().unwrap(),
+            MyEnum::C("1234567".to_string())
+        )
     }
 }

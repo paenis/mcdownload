@@ -197,15 +197,15 @@ impl PartialEq for GameVersion {
     }
 }
 
-impl PartialOrd for GameVersion {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.release_time.partial_cmp(&other.release_time)
-    }
-}
-
 impl Ord for GameVersion {
     fn cmp(&self, other: &Self) -> Ordering {
         self.release_time.cmp(&other.release_time)
+    }
+}
+
+impl PartialOrd for GameVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 

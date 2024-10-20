@@ -218,7 +218,7 @@ async fn install_jre(major_version: &u8, pb: &ProgressBar) -> Result<()> {
 
     pb.set_message("Extracting JRE...");
     info!("Starting JRE extraction");
-    extract_jre(jre, &jre_dir).wrap_err(format!("Failed to extract JRE"))?;
+    extract_jre(jre, &jre_dir).wrap_err("Failed to extract JRE")?;
     info!("Extracted JRE");
 
     pb.set_message("Updating metadata...");
