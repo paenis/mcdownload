@@ -54,7 +54,7 @@ where T: Serialize + for<'de> Deserialize<'de> {
             if let Ok(elapsed) = cached.expires.duration_since(SystemTime::now()) {
                 let (minutes, seconds) = (elapsed.as_secs() / 60, elapsed.as_secs() % 60);
                 let milis = elapsed.subsec_millis();
-                msg.push_str(&format!(" expiring in {minutes}:{seconds}.{milis:03}"));
+                msg.push_str(&format!(" expiring in {minutes:02}:{seconds:02}.{milis:03}"));
             }
             debug!("{msg}");
             return Ok(cached.data);
