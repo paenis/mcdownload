@@ -87,6 +87,10 @@ jobs:
         if: matrix.target != ''
         run: rustup target add ${{ matrix.target }}
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
       - name: Run tests
         run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }} #--target-dir ${{ env.TARGET_DIR }}
 
