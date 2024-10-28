@@ -14,7 +14,7 @@ jobs:
     name: test linux-${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}
     env:
       CARGO_TERM_COLOR: always
-      TARGET_DIR: ${{ github.workspace }}/target
+      # TARGET_DIR: ${{ github.workspace }}/target
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -49,50 +49,51 @@ jobs:
       #     echo "${{ github.workspace }}/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
 
       - name: Run tests
-        run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }} --target-dir ${{ env.TARGET_DIR }}
+        run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }} #--target-dir ${{ env.TARGET_DIR }}
 
-      - if: matrix.target != ''
-        run: echo "TARGET_DIR=${{ github.workspace }}/target/${{ matrix.target }}" >> $GITHUB_ENV
+      # - if: matrix.target != ''
+      #   run: echo "TARGET_DIR=${{ github.workspace }}/target/${{ matrix.target }}" >> $GITHUB_ENV
 
-      - name: Upload debug artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}-debug
-          path: |
-            ${{ env.TARGET_DIR }}/debug/mcdl{,*}
-            !${{ env.TARGET_DIR }}/debug/mcdl.d
+      # - name: Upload debug artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}-debug
+      #     path: |
+      #       ${{ env.TARGET_DIR }}/debug/mcdl{,*}
+      #       !${{ env.TARGET_DIR }}/debug/mcdl.d
+
+  test-windows:
+    name: test windows-${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}
+    env:
+      CARGO_TERM_COLOR: always
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        toolchain: [stable, nightly]
+        target:
+          [
+            "",
+            # "x86_64-pc-windows-msvc",
+            # "x86_64-pc-windows-gnu",
+          ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: rustc --version
+
+      - name: Add target
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Run tests
+        run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }} #--target-dir ${{ env.TARGET_DIR }}
+
+      # see above for uploading
 
   trigger-build:
     name: trigger build
-    needs: test-linux
+    needs: [test-linux, test-windows]
     uses: ./.github/workflows/build.yml
 
-# jobs:
-#   test:
-#     name: test ${{ matrix.build }}
-#     env:
-#       CARGO: cargo
-#       TARGET_FLAGS: ""
-#       TARGET_DIR: ./target
-#       TEST_FLAGS: ""
-#     runs-on: ${{ matrix.os }}
-#     strategy:
-#       matrix:
-#         toolchain: [stable, nightly]
-#         build:
-#           [
-#             win-msvc,
-#             win-gnu,test
-# test
-#           ]
-#         include:
-#           - build: win-msvc
-#             os: windows-2022
-#           - build: win-gnu
-#             os: windows-2022
-#             toolchain: nightly-x86_64-gnu
-
-#   trigger_build:
-#     name: trigger build
-#     needs: test
-#     uses: ./.github/workflows/build.yml

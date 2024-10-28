@@ -358,7 +358,7 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
 
             let latest = std::fs::read_dir(crash_reports)
                 .wrap_err("Failed to read crash reports directory")?
-                .filter_map(|entry| entry.ok())
+                .filter_map(Result::ok)
                 .max_by(|a, b| {
                     let a = a.metadata().unwrap().modified().unwrap();
                     let b = b.metadata().unwrap().modified().unwrap();
