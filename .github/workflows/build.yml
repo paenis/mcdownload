@@ -79,7 +79,7 @@ jobs:
         run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }} --profile ${{ env.PROFILE }}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.build }}.${{ env.PROFILE }}
           path: |
