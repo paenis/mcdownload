@@ -52,7 +52,7 @@ jobs:
           #   rust: nightly-x86_64-gnu
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install packages (Ubuntu)
         if: matrix.os == 'ubuntu-22.04'
