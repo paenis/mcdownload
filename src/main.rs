@@ -18,6 +18,7 @@ use clap::{arg, command, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use color_eyre::config::{HookBuilder, Theme};
 use color_eyre::eyre::{eyre, Result, WrapErr};
 use color_eyre::owo_colors::OwoColorize;
+use derive_more::derive::Display;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use prettytable::format::FormatBuilder;
@@ -27,7 +28,6 @@ use tracing::{debug, info, instrument};
 use crate::common::{LOG_BASE_DIR, MCDL_VERSION, META, PROJ_DIRS};
 use crate::types::meta::AsArgs;
 use crate::types::version::{GameVersionList, VersionNumber};
-use crate::utils::macros::enum_to_string;
 use crate::utils::net::get_version_manifest;
 
 lazy_static! {
@@ -136,7 +136,7 @@ impl Default for ListFilter {
 }
 
 #[doc(hidden)]
-#[derive(Clone, Copy, ValueEnum, Debug)]
+#[derive(Clone, Copy, ValueEnum, Debug, Display)]
 enum WhatEnum {
     /// The Java Runtime Environment directory
     Java,
@@ -147,13 +147,6 @@ enum WhatEnum {
     /// The directory containing logs
     Log,
 }
-
-enum_to_string!(WhatEnum {
-    Java,
-    Instance,
-    Config,
-    Log,
-});
 
 #[instrument(level = "debug", err, ret)]
 fn validate_version_number(v: &str) -> Result<VersionNumber> {

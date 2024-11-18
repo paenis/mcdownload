@@ -1,40 +1,3 @@
-/// Defines an `is_<variant>` method for each variant of an enum
-///
-/// Will not work for enums with variants that have no data
-macro_rules! defn_is_variant {
-    ($( $variant:ident ),*) => {
-        $(
-            paste::paste! {
-                #[doc = "Returns true if the enum has the variant `" $variant "`"]
-                pub fn [<is_ $variant:snake>](&self) -> bool {
-                    match self {
-                        Self::$variant(_) => true,
-                        _ => false,
-                    }
-                }
-            }
-        )*
-    };
-}
-
-/// Defines a simple `ToString` implementation for an enum with variants
-/// by using the variant name as the string representation
-macro_rules! enum_to_string {
-    ($enum_name:ident { $( $variant:ident ),* $(,)? }) => {
-        paste::paste! {
-            #[allow(unreachable_patterns)]
-            impl std::string::ToString for $enum_name {
-                fn to_string(&self) -> String {
-                    match self {
-                        $( Self::$variant => stringify!([<$variant:lower>]).into(), )*
-                        _ => unimplemented!(),
-                    }
-                }
-            }
-        }
-    };
-}
-
 /// Defines a `FromStr` implementation for an enum with variants
 /// that can be parsed from a string
 ///
@@ -82,40 +45,10 @@ macro_rules! parse_variants {
     };
 }
 
-pub(crate) use {defn_is_variant, enum_to_string, parse_variants};
+pub(crate) use parse_variants;
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn defn_is_variant() {
-        #[derive(Debug, PartialEq)]
-        enum MyEnum {
-            A(u64),
-            B(String),
-            C(Vec<u8>),
-        }
-
-        impl MyEnum {
-            defn_is_variant!(A, B, C);
-        }
-
-        let a = MyEnum::A(123);
-        let b = MyEnum::B("hello".to_string());
-        let c = MyEnum::C(vec![1, 2, 3]);
-
-        assert!(a.is_a());
-        assert!(!a.is_b());
-        assert!(!a.is_c());
-
-        assert!(!b.is_a());
-        assert!(b.is_b());
-        assert!(!b.is_c());
-
-        assert!(!c.is_a());
-        assert!(!c.is_b());
-        assert!(c.is_c());
-    }
-
     #[test]
     fn parse_variants() {
         #[derive(Debug, PartialEq)]

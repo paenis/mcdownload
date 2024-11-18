@@ -4,13 +4,14 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use chrono::{DateTime, FixedOffset};
-use derive_more::{Constructor, Display as MoreDisplay};
+use derive_more::derive::{Constructor, IsVariant};
+use derive_more::Display as MoreDisplay;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 
-use crate::utils::macros::{defn_is_variant, parse_variants};
+use crate::utils::macros::parse_variants;
 
 /// Version format for release versions
 /// in the form of `X.Y.Z`
@@ -155,7 +156,9 @@ impl FromStr for SnapshotVersion {
 /// - `PreRelease`
 /// - `Snapshot`
 /// - `Other`
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, MoreDisplay)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, MoreDisplay, IsVariant,
+)]
 #[serde(untagged)]
 pub(crate) enum VersionNumber {
     Release(ReleaseVersion),
@@ -171,10 +174,6 @@ parse_variants!(VersionNumber {
     Snapshot as SnapshotVersion,
     Other as String,
 });
-
-impl VersionNumber {
-    defn_is_variant!(Release, PreRelease, Snapshot, Other);
-}
 
 /// A version of the game
 ///
