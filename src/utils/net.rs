@@ -82,7 +82,7 @@ pub(crate) async fn download_jre(major_version: &u8) -> Result<Bytes> {
         "https://api.adoptium.net/v3/binary/latest/{feature_version}/{release_type}/{os}/{arch}/{image_type}/{jvm_impl}/{heap_size}/{vendor}",
         feature_version = major_version,
         release_type = "ga",
-        os = std::env::consts::OS, // fine
+        os = match std::env::consts::OS { "macos" => "mac", os => os },
         arch = std::env::consts::ARCH,
         image_type = "jre",
         jvm_impl = "hotspot",
@@ -121,7 +121,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_download_jre() {
-        let jre = download_jre(&8).await.unwrap();
+        let version = match std::env::consts::OS {
+            "macos" => 11, // Adoptium doesn't have JRE 8 for aaarch64 macOS
+            _ => 8,
+        };
+
+        let jre = download_jre(&version).await.unwrap();
         assert!(!jre.is_empty());
     }
 }
