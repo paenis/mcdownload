@@ -32,7 +32,7 @@ jobs:
           tool: nextest
 
       - name: Run Clippy
-        run: cargo clippy
+        run: cargo build && cargo clippy
 
       - name: Run tests
         run: cargo nextest run --release
@@ -68,7 +68,7 @@ jobs:
           tool: nextest
 
       - name: Run Clippy
-        run: cargo clippy
+        run: cargo build && cargo clippy
 
       - name: Run tests
         run: cargo nextest run --release
@@ -104,7 +104,7 @@ jobs:
           tool: nextest
 
       - name: Run Clippy
-        run: cargo clippy
+        run: cargo build && cargo clippy
 
       - name: Run tests
         run: cargo nextest run --release
