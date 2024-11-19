@@ -409,7 +409,7 @@ pub(crate) async fn run_instance(id: VersionNumber) -> Result<()> {
 
 #[instrument(err, ret(level = "debug"))]
 pub(crate) fn locate(what: &String) -> Result<()> {
-    match what.as_str() {
+    match what.to_ascii_lowercase().as_str() {
         "java" => {
             println!("JRE base directory: {}", JRE_BASE_DIR.display());
         }

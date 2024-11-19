@@ -443,8 +443,7 @@ async fn run_impl(version: String) -> Result<()> {
 #[instrument(err, ret(level = "debug"))]
 fn locate_impl(what: WhatEnum) -> Result<()> {
     // TODO: pass directly
-    app::locate(&what.to_string())
-        .wrap_err(format!("Error while locating `{}`", what.to_string()))?;
+    app::locate(&what.to_string()).wrap_err(format!("Error while locating `{what}`"))?;
 
     Ok(())
 }
