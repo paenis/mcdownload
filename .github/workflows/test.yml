@@ -120,6 +120,6 @@ jobs:
 
   trigger-build:
     name: trigger build
-    needs: [test-linux, test-windows, test-macos]
+    needs: [test-linux, test-windows]
     uses: ./.github/workflows/build.yml
 

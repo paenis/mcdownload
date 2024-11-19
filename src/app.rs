@@ -559,9 +559,9 @@ fn extract_jre(jre: Bytes, jre_dir: &PathBuf) -> Result<()> {
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
-#[instrument(err, ret(level = "debug"), skip(jre))]
-fn extract_jre(_jre: &Bytes, _jre_dir: &PathBuf) -> Result<()> {
-    Err(eyre!("Unsupported OS"))
+#[instrument(err, ret(level = "debug"), skip(_jre))]
+fn extract_jre(_jre: Bytes, _jre_dir: &PathBuf) -> Result<()> {
+    Err(eyre!("Unsupported OS")) // TODO fail gracefully
 }
 
 #[instrument(ret(level = "debug"))]
