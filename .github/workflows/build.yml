@@ -6,7 +6,11 @@ jobs:
   build:
     name: build ${{ matrix.profile }} for ${{ matrix.build }}
     env:
-        BUILD_DIR: ${{ matrix.profile != 'dev' && matrix.profile || 'debug' }}
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+      BUILD_DIR: ${{ matrix.profile != 'dev' && matrix.profile || 'debug' }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -44,7 +48,9 @@ jobs:
     needs: [build] # wait for normal builds (faster)
     name: build ${{ matrix.profile }} for ${{ matrix.build }}
     env:
-        BUILD_DIR: ${{ matrix.profile != 'dev' && matrix.profile || 'debug' }}
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
+      BUILD_DIR: ${{ matrix.profile != 'dev' && matrix.profile || 'debug' }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
