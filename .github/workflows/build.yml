@@ -15,14 +15,14 @@ jobs:
     strategy:
       matrix:
         build:
-          [linux-nightly, win-msvc]
+          [linux, windows-msvc]
         profile:
           [release] 
         include:
-          - build: linux-nightly
+          - build: linux
             os: ubuntu-latest
-          - build: win-msvc
-            os: windows-2022
+          - build: windows-msvc
+            os: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.build }}.${{ matrix.profile }}
+          name: ${{ matrix.build }}.nightly.${{ matrix.profile }}
           path: |
             ./target/${{ env.BUILD_DIR }}/mcdl*
             !./target/${{ env.BUILD_DIR }}/mcdl.d
@@ -55,11 +55,11 @@ jobs:
     strategy:
       matrix:
         build:
-          [linux-nightly-aarch64]
+          [linux-aarch64]
         profile:
           [release]
         include:
-          - build: linux-nightly-aarch64
+          - build: linux-aarch64
             os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
     steps:
@@ -70,10 +70,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Use Cross
-        run: |
-          cargo install cross
-          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
-          echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+        run: cargo install cross
 
       - name: Build
         run: cross build --verbose --target ${{ matrix.target }} --profile ${{ matrix.profile }}
@@ -81,7 +78,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.build }}.${{ matrix.profile }}
+          name: ${{ matrix.build }}.nightly.${{ matrix.profile }}
           path: |
             ./target/${{ matrix.target }}/${{ env.BUILD_DIR }}/mcdl*
             !./target/${{ matrix.target }}/${{ env.BUILD_DIR }}/mcdl.d
