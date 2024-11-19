@@ -1,7 +1,7 @@
 name: ci
 on:
   push:
-    branches: [main]
+    branches: [main, rewrite]
     paths-ignore:
       - "**.md"
   pull_request:
@@ -11,90 +11,58 @@ on:
 
 jobs:
   test-linux:
-    name: test linux-${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}
     env:
       CARGO_TERM_COLOR: always
-      # TARGET_DIR: ${{ github.workspace }}/target
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        toolchain: [stable, nightly]
-        target:
-          [
-            "",
-            # "x86_64-unknown-linux-musl",
-            # "aarch64-unknown-linux-gnu",
-            # "aarch64-unknown-linux-musl",
-          ]
+      CARGO_INCREMENTAL: 0
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install Rust
-        run: rustc --version
+        run: rustup show
 
-      - name: Add target
-        if: matrix.target != ''
-        run: rustup target add ${{ matrix.target }}
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.4
 
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-nextest
+          tool: nextest
 
-      # - name: Set up cross-compilation
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y gcc-aarch64-linux-gnu musl-tools
-      #     curl -L https://musl.cc/aarch64-linux-musl-cross.tgz | tar -xz -C ${{ github.workspace }}
-      #     echo "${{ github.workspace }}/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
+      - name: Run Clippy
+        run: cargo clippy
 
       - name: Run tests
-        run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }} #--target-dir ${{ env.TARGET_DIR }}
-
-      # - if: matrix.target != ''
-      #   run: echo "TARGET_DIR=${{ github.workspace }}/target/${{ matrix.target }}" >> $GITHUB_ENV
-
-      # - name: Upload debug artifacts
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: ${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}-debug
-      #     path: |
-      #       ${{ env.TARGET_DIR }}/debug/mcdl{,*}
-      #       !${{ env.TARGET_DIR }}/debug/mcdl.d
+        run: cargo nextest run --release
 
   test-windows:
-    name: test windows-${{ matrix.toolchain }}${{ matrix.target != '' && '-' || '' }}${{ matrix.target }}
     env:
       CARGO_TERM_COLOR: always
-    runs-on: windows-2022
-    strategy:
-      matrix:
-        toolchain: [stable, nightly]
-        target:
-          [
-            "",
-            # "x86_64-pc-windows-msvc",
-            # "x86_64-pc-windows-gnu",
-          ]
+      CARGO_INCREMENTAL: 0
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install Rust
-        run: rustc --version
+        run: rustup show
 
-      - name: Add target
-        if: matrix.target != ''
-        run: rustup target add ${{ matrix.target }}
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.4
 
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-nextest
+          tool: nextest
+
+      - name: Run Clippy
+        run: cargo clippy
 
       - name: Run tests
-        run: cargo nextest run --verbose --bins ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }} #--target-dir ${{ env.TARGET_DIR }}
-
-      # see above for uploading
+        run: cargo nextest run --release
 
   trigger-build:
     name: trigger build
