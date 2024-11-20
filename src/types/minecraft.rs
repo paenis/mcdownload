@@ -89,10 +89,47 @@ fn pre_release_version(i: &mut &str) -> PResult<PreReleaseVersionNumber> {
 }
 
 #[derive(Debug, Display)]
+#[display("{year}w{week}{snapshot}")]
+struct SnapshotVersionNumber {
+    year: u8,
+    week: u8,
+    // usually single letter starting with 'a', except april fools snapshots
+    snapshot: char, // TODO: is this a good idea?
+}
+
+impl FromStr for SnapshotVersionNumber {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        snapshot_version.parse(s).map_err(|e| e.to_string())
+    }
+}
+
+fn snapshot_version(i: &mut &str) -> PResult<SnapshotVersionNumber> {
+    seq!(SnapshotVersionNumber {
+        year: take_while(2, AsChar::is_dec_digit)
+            .parse_to()
+            .context(StrContext::Label("year"))
+            .context(StrContext::Expected(StrContextValue::Description("two digit year"))),
+        _: 'w',
+        week: take_while(2, AsChar::is_dec_digit)
+            .parse_to()
+            .context(StrContext::Label("week"))
+            .context(StrContext::Expected(StrContextValue::Description("two digit week"))),
+        snapshot: take_while(1, 'a'..='z')
+            .parse_to()
+            .context(StrContext::Label("snapshot"))
+            .context(StrContext::Expected(StrContextValue::Description("lowercase letter"))),
+    })
+    .parse_next(i)
+}
+
+#[derive(Debug, Display)]
 enum VersionNumber {
     Release(ReleaseVersionNumber),
     PreRelease(PreReleaseVersionNumber),
-    Other(String),
+    Snapshot(SnapshotVersionNumber),
+    NonStandard(String),
 }
 
 impl FromStr for VersionNumber {
@@ -104,20 +141,25 @@ impl FromStr for VersionNumber {
 }
 
 fn version_number(i: &mut &str) -> PResult<VersionNumber> {
-    // NOTE: winnow seems to be greedy/doesn't backtrack in some cases, so we need to try the most specific parsers first.
-    // in practice, this means we need to try pre-release before release (which it contains)
     alt((
+        // pre-release contains a release version, so it must be checked first
         pre_release_version
             .map(VersionNumber::PreRelease)
             .context(StrContext::Label("pre-release version")),
         release_version
             .map(VersionNumber::Release)
             .context(StrContext::Label("release version")),
+        snapshot_version
+            .map(VersionNumber::Snapshot)
+            .context(StrContext::Label("snapshot version")),
         take_while(4.., (AsChar::is_alphanum, '.', '-', '_', ' '))
-            .map(|s: &str| VersionNumber::Other(s.into()))
-            .context(StrContext::Label("other version")),
+            .map(|s: &str| VersionNumber::NonStandard(s.into()))
+            .context(StrContext::Label("non-standard version"))
+            .context(StrContext::Expected(StrContextValue::Description(
+                "[a-zA-Z0-9._- ]",
+            ))),
         fail.context(StrContext::Expected(StrContextValue::Description(
-            "version number",
+            "version number (4 or more characters)",
         ))),
     ))
     .parse_next(i)
@@ -172,8 +214,21 @@ mod tests {
     test_parse!(parse_pre_release4: pre_release_version("1.2-pre99") => PreReleaseVersionNumber { release: ReleaseVersionNumber { major: 1, minor: 2, patch: 0 }, pre_release: _ });
     test_bijective!(pre_release_bijective: pre_release_version("1.2.3-pre1"));
 
+    test_parse!(parse_snapshot1: snapshot_version("13w24a") => SnapshotVersionNumber { year: 13, week: 24, snapshot: 'a' });
+    test_parse!(parse_snapshot2: snapshot_version("24w11") => panic);
+    test_parse!(parse_snapshot3: snapshot_version("22w43a1") => panic);
+    test_parse!(parse_snapshot4: snapshot_version("1w05a") => panic);
+    test_parse!(parse_snapshot5: snapshot_version("12w4a") => panic);
+    test_parse!(parse_snapshot6: snapshot_version("15w081") => panic);
+    test_parse!(parse_snapshot7: snapshot_version("17a22b") => panic);
+    test_parse!(parse_snapshot8: snapshot_version("14w38.") => panic);
+    test_parse!(parse_snapshot9: snapshot_version("16w19ab") => panic);
+    test_bijective!(snapshot_bijective: snapshot_version("13w24a"));
+
     test_parse!(parse_version1: version_number("1.2.3") => VersionNumber::Release(ReleaseVersionNumber { major: 1, minor: 2, patch: 3 }));
     test_parse!(parse_version2: version_number("1.2.3-pre1") => VersionNumber::PreRelease(PreReleaseVersionNumber { release: ReleaseVersionNumber { major: 1, minor: 2, patch: 3 }, pre_release: _ }));
-    test_parse!(parse_version3: version_number("") => panic);
+    test_parse!(parse_version3: version_number("13w24a") => VersionNumber::Snapshot(SnapshotVersionNumber { year: 13, week: 24, snapshot: 'a' }));
+    test_parse!(parse_version4: version_number("foobar") => VersionNumber::NonStandard(_));
+    test_parse!(parse_version5: version_number("") => panic);
     test_bijective!(version_bijective: version_number("foobar"));
 }
