@@ -1,9 +1,4 @@
 /target
-.manifest.json
-
-/libraries
-/logs
-/versions
 
 /.idea
 /.vscode
