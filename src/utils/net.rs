@@ -122,7 +122,7 @@ mod tests {
     #[tokio::test]
     async fn test_download_jre() {
         let version = match std::env::consts::OS {
-            "macos" => 11, // Adoptium doesn't have JRE 8 for aaarch64 macOS
+            "macos" => 11, // Adoptium doesn't have JRE 8 for aarch64 macOS
             _ => 8,
         };
 
