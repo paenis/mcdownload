@@ -47,7 +47,7 @@ vergen = { version = "8.2.6", features = ["git", "gitcl", "cargo"] }
 zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 
 [target.'cfg(unix)'.dependencies]
-flate2 = "1.0.33"
+flate2 = "1.0.35"
 tar = "0.4.40"
 
 [profile.dev]
