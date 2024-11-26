@@ -10,5 +10,5 @@ fn main() {
         Channel::Nightly => "nightly",
         Channel::Dev => "dev",
     };
-    println!("cargo:rustc-cfg=channel=\"{channel}\"");
+    println!(r#"cargo:rustc-cfg=channel="{channel}""#);
 }

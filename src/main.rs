@@ -1,7 +1,7 @@
 #![cfg_attr(channel = "nightly", feature(assert_matches))]
 
 mod macros;
-mod types;
+mod minecraft;
 
 fn main() {
     println!("Hello, world!");

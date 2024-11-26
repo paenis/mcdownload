@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
-use derive_more::derive::Display;
+use derive_more::derive::{Display, From};
+use serde::Deserialize;
+use serde_with::DeserializeFromStr;
 use winnow::ascii::digit1;
 use winnow::combinator::{alt, fail, opt, preceded};
 use winnow::error::{StrContext, StrContextValue};
@@ -9,12 +11,12 @@ use winnow::seq;
 use winnow::stream::AsChar;
 use winnow::token::take_while;
 
-#[derive(Debug)]
+#[derive(Debug, DeserializeFromStr, PartialEq)]
 struct ReleaseVersionNumber {
     // u8 is reasonable for Minecraft specifically; this can be easily changed
     major: u8,
     minor: u8,
-    patch: u8,
+    patch: u8, // TODO: should this be an Option?
 }
 
 impl std::fmt::Display for ReleaseVersionNumber {
@@ -57,7 +59,7 @@ fn release_version(i: &mut &str) -> PResult<ReleaseVersionNumber> {
     })
 }
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, DeserializeFromStr, PartialEq)]
 #[display("{release}-{pre_release}")]
 struct PreReleaseVersionNumber {
     release: ReleaseVersionNumber,
@@ -84,11 +86,12 @@ fn pre_release_version(i: &mut &str) -> PResult<PreReleaseVersionNumber> {
 
     Ok(PreReleaseVersionNumber {
         release: rv,
-        pre_release: format!("{}{}", pre_s, pre_n),
+        // avoids a format! call (and double allocation?)
+        pre_release: [pre_s, pre_n].concat(),
     })
 }
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, DeserializeFromStr, PartialEq)]
 #[display("{year}w{week}{snapshot}")]
 struct SnapshotVersionNumber {
     year: u8,
@@ -124,14 +127,18 @@ fn snapshot_version(i: &mut &str) -> PResult<SnapshotVersionNumber> {
     .parse_next(i)
 }
 
-#[derive(Debug, Display)]
+/// All-encompassing version number type, including versions that don't fit the three standard formats (as [`VersionNumber::NonStandard`])
+#[derive(Debug, Display, From, Deserialize, PartialEq)]
+#[serde(untagged)]
 enum VersionNumber {
     Release(ReleaseVersionNumber),
     PreRelease(PreReleaseVersionNumber),
     Snapshot(SnapshotVersionNumber),
+    // this captures old_beta, old_alpha, some 1.14 snapshots, and april fools snapshots
     NonStandard(String),
 }
 
+/// Parses any version number string into a `VersionNumber` with the appropriate variant
 impl FromStr for VersionNumber {
     type Err = String;
 
@@ -165,6 +172,26 @@ fn version_number(i: &mut &str) -> PResult<VersionNumber> {
     .parse_next(i)
 }
 
+/// Data type representing the entries in the `versions` field of the [top-level piston-meta JSON object](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)
+///
+/// The actual JSON object also includes the `sha1` and `complianceLevel` fields, but they are not relevant for this project
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct MinecraftVersion {
+    /// Version number corresponding to the release.
+    id: VersionNumber,
+    /// Type of release, e.g. "release", "snapshot", "old_beta", "old_alpha".
+    r#type: String, // TODO: potential enum
+    /// URL pointing to the specific version manifest.
+    url: String,
+    /// Last modified time (of what? probably the manifest, but not sure).
+    time: String, // chrono::DateTime, either FixedOffset or Utc
+    /// Time of release.
+    release_time: String, // see above
+    // /// SHA-1 hash of something...
+    // sha1: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,7 +214,9 @@ mod tests {
         };
     }
 
-    // NOTE: only useful for canonical representations of the version numbers, i.e. as found in the manifest
+    /// Test that a type can be parsed and then serialized back to the original string
+    ///
+    /// NOTE: only useful for canonical representations of the version numbers, i.e. as found in the manifest
     macro_rules! test_bijective {
         ($name:ident: $parser:ident($input:expr)) => {
             #[test]
@@ -231,4 +260,29 @@ mod tests {
     test_parse!(parse_version4: version_number("foobar") => VersionNumber::NonStandard(_));
     test_parse!(parse_version5: version_number("") => panic);
     test_bijective!(version_bijective: version_number("foobar"));
+
+    #[test]
+    fn deserialize_minecraft_version() {
+        let json = r#"{"id": "1.21.4", "type": "release", "url": "https://piston-meta.mojang.com/v1/packages/a3bcba436caa849622fd7e1e5b89489ed6c9ac63/1.21.4.json", "time": "2024-12-03T10:24:48+00:00", "releaseTime": "2024-12-03T10:12:57+00:00", "sha1": "a3bcba436caa849622fd7e1e5b89489ed6c9ac63", "complianceLevel": 1}"#;
+        assert_eq!(
+            serde_json::from_str::<MinecraftVersion>(json).unwrap(), 
+            MinecraftVersion {
+                id: VersionNumber::Release(ReleaseVersionNumber { major: 1, minor: 21, patch: 4 }),
+                r#type: "release".into(),
+                url: "https://piston-meta.mojang.com/v1/packages/a3bcba436caa849622fd7e1e5b89489ed6c9ac63/1.21.4.json".into(),
+                time: "2024-12-03T10:24:48+00:00".into(),
+                release_time: "2024-12-03T10:12:57+00:00".into(),
+            }
+        )
+    }
+
+    #[test]
+    fn deserialize_all() {
+        let json = include_str!("../test_data/versions.json");
+        // dbg!(json);
+
+        // check that manifest versions deserialize successfully
+        let _versions: Vec<_> = serde_json::from_str::<Vec<MinecraftVersion>>(&json).unwrap().into_iter().map(|v| v.id).collect();
+        // dbg!(versions);
+    }
 }
