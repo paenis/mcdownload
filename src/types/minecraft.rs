@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
-use derive_more::derive::Display;
+use derive_more::derive::{Display, From};
+use serde::Deserialize;
+use serde_with::DeserializeFromStr;
 use winnow::ascii::digit1;
 use winnow::combinator::{alt, fail, opt, preceded};
 use winnow::error::{StrContext, StrContextValue};
@@ -9,12 +11,12 @@ use winnow::seq;
 use winnow::stream::AsChar;
 use winnow::token::take_while;
 
-#[derive(Debug)]
+#[derive(Debug, DeserializeFromStr)]
 struct ReleaseVersionNumber {
     // u8 is reasonable for Minecraft specifically; this can be easily changed
     major: u8,
     minor: u8,
-    patch: u8,
+    patch: u8, // TODO: should this be an Option?
 }
 
 impl std::fmt::Display for ReleaseVersionNumber {
@@ -57,7 +59,7 @@ fn release_version(i: &mut &str) -> PResult<ReleaseVersionNumber> {
     })
 }
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, DeserializeFromStr)]
 #[display("{release}-{pre_release}")]
 struct PreReleaseVersionNumber {
     release: ReleaseVersionNumber,
@@ -88,7 +90,7 @@ fn pre_release_version(i: &mut &str) -> PResult<PreReleaseVersionNumber> {
     })
 }
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, DeserializeFromStr)]
 #[display("{year}w{week}{snapshot}")]
 struct SnapshotVersionNumber {
     year: u8,
@@ -124,11 +126,13 @@ fn snapshot_version(i: &mut &str) -> PResult<SnapshotVersionNumber> {
     .parse_next(i)
 }
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, From, Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum VersionNumber {
     Release(ReleaseVersionNumber),
     PreRelease(PreReleaseVersionNumber),
     Snapshot(SnapshotVersionNumber),
+    // this captures old_beta, old_alpha, some 1.14 snapshots, and april fools snapshots
     NonStandard(String),
 }
 
@@ -163,6 +167,17 @@ fn version_number(i: &mut &str) -> PResult<VersionNumber> {
         ))),
     ))
     .parse_next(i)
+}
+
+// top-level items of {versions} in piston-meta
+// fields are named after the keys in the JSON object
+// #[serde(rename_all = "camelCase")]
+struct MinecraftVersion {
+    id: VersionNumber,
+    r#type: String, // TODO: potential enum
+    url: String,
+    time: String,         // chrono::DateTime, either FixedOffset or Utc
+    release_time: String, // see above
 }
 
 #[cfg(test)]
@@ -231,4 +246,10 @@ mod tests {
     test_parse!(parse_version4: version_number("foobar") => VersionNumber::NonStandard(_));
     test_parse!(parse_version5: version_number("") => panic);
     test_bijective!(version_bijective: version_number("foobar"));
+
+    // #[test]
+    // fn print_serialized_version() {
+    //     let version = "23w14b".parse::<VersionNumber>().unwrap();
+    //     println!("{}", toml::to_string(&version).unwrap());
+    // }
 }
