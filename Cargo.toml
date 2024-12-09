@@ -48,7 +48,7 @@ zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 
 [target.'cfg(unix)'.dependencies]
 flate2 = "1.0.35"
-tar = "0.4.40"
+tar = "0.4.43"
 
 [profile.dev]
 opt-level = 1
