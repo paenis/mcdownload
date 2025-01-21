@@ -1,5 +1,7 @@
 #![allow(unused_macros, unused_imports)]
 
+// TODO: consider making this local to cfg(test)
+
 macro_rules! assert_matches {
     ($expression:expr, $pattern:pat) => {
         assert!(
