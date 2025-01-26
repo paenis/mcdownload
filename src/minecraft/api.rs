@@ -97,6 +97,15 @@ impl VersionManifest {
     }
 }
 
+impl IntoIterator for VersionManifest {
+    type Item = MinecraftVersion;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.versions.into_iter()
+    }
+}
+
 /// Builds a URL from a relative path.
 #[inline]
 fn piston(path: &str) -> String {
@@ -112,20 +121,24 @@ fn build_agent() -> Agent {
 }
 
 fn agent() -> &'static Agent {
+    // does cloning make sense here?
     AGENT.get_or_init(build_agent)
 }
 
-/// Calls the Piston API and returns the parsed JSON response
-pub fn get<T: serde::de::DeserializeOwned>(path: &str) -> Result<T> {
+/// Calls the Piston API and returns the parsed JSON response.
+/// 
+/// You must pass the full path to the API endpoint.
+// #[inline]
+fn get<T: serde::de::DeserializeOwned>(path: &str) -> Result<T> {
     // TODO: adapt to use caching
-    Ok(agent().get(&piston(path)).call()?.into_json()?)
+    Ok(agent().get(path).call()?.into_json()?)
 }
 
 /// Convenience method to get the Minecraft version manifest
 ///
-/// This is the same as calling `get::<VersionManifest>("mc/game/version_manifest_v2.json")`
+/// This is the same as calling `get::<VersionManifest>(&piston("mc/game/version_manifest_v2.json"))`
 pub fn get_manifest() -> Result<VersionManifest> {
-    get("mc/game/version_manifest_v2.json")
+    get(&piston("mc/game/version_manifest_v2.json"))
 }
 
 #[cfg(test)]
@@ -142,12 +155,9 @@ mod tests {
 
     #[test]
     fn latest_version() {
-        let v = get::<serde_json::Value>("mc/game/version_manifest_v2.json").unwrap();
-        let latest = v.get("latest");
-        assert!(latest.is_some());
-        let release = latest.unwrap().get("release");
-        assert!(release.is_some());
-        eprintln!("{:?}", release.unwrap());
+        let manifest = get_manifest().unwrap();
+        assert_eq!(manifest.latest_release_id(), &manifest.latest_release().id);
+        assert_eq!(manifest.latest_snapshot_id(), &manifest.latest_snapshot().id);
     }
 
     #[test]
@@ -167,10 +177,8 @@ mod tests {
 
     #[test]
     fn deserialize_all() {
-        let json = include_str!("../../test_data/versions.json");
-
         // check that manifest versions deserialize successfully
-        let _versions: Vec<_> = serde_json::from_str::<Vec<MinecraftVersion>>(&json)
+        let _versions: Vec<_> = get_manifest()
             .unwrap()
             .into_iter()
             .map(|v| v.id)
