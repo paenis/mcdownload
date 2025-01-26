@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use bpaf::*;
 
 use crate::minecraft::VersionNumber;
@@ -9,19 +11,18 @@ pub struct Options {
 
 #[derive(Debug)]
 enum Cmd {
-    Install { instances: Vec<String> },
+    Install { instances: Vec<VersionNumber> },
     Foo,
 }
 
 fn install() -> impl Parser<Cmd> {
     // NOTE: see https://docs.rs/bpaf/latest/bpaf/_documentation/_3_cookbook/_05_struct_groups/index.html for adding associated name for each instance
     let instances = short('v')
-        .help("Version to install")
-        .argument::<String>("VERSION")
-        .many()
-        .fallback_with(|| VersionNumber::latest().map(|v| vec![v.to_string()]))
-        // .debug_fallback();
-        ;
+        .help("Version(s) to install. If not specified, the latest release will be used.")
+        .argument::<VersionNumber>("VERSION")
+        // .guard(|v| true /* check membership in manifest */, "version not found")
+        .some("must specify at least one version")
+        .fallback_with(|| VersionNumber::latest_release().map(|v| vec![v]));
     construct!(Cmd::Install { instances })
 }
 

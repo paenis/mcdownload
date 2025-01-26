@@ -1,3 +1,5 @@
+mod api;
+
 use std::str::FromStr;
 
 use derive_more::derive::{Display, From};
@@ -12,7 +14,7 @@ use winnow::stream::AsChar;
 use winnow::token::take_while;
 
 #[derive(Debug, DeserializeFromStr, PartialEq)]
-struct ReleaseVersionNumber {
+pub struct ReleaseVersionNumber {
     // u8 is reasonable for Minecraft specifically; this can be easily changed
     major: u8,
     minor: u8,
@@ -61,7 +63,7 @@ fn release_version(i: &mut &str) -> PResult<ReleaseVersionNumber> {
 
 #[derive(Debug, Display, DeserializeFromStr, PartialEq)]
 #[display("{release}-{pre_release}")]
-struct PreReleaseVersionNumber {
+pub struct PreReleaseVersionNumber {
     release: ReleaseVersionNumber,
     pre_release: String,
 }
@@ -93,7 +95,7 @@ fn pre_release_version(i: &mut &str) -> PResult<PreReleaseVersionNumber> {
 
 #[derive(Debug, Display, DeserializeFromStr, PartialEq)]
 #[display("{year}w{week}{snapshot}")]
-struct SnapshotVersionNumber {
+pub struct SnapshotVersionNumber {
     year: u8,
     week: u8,
     // usually single letter starting with 'a', except april fools snapshots
@@ -139,9 +141,17 @@ pub enum VersionNumber {
 }
 
 impl VersionNumber {
-    pub fn latest() -> Result<VersionNumber, String /* never */> {
-        todo!("fetch latest version from api")
-        // Ok(ReleaseVersionNumber { major: 1, minor: 17, patch: 1 }.into())
+    // maybe these make more sense on `api::VersionManifest`
+    fn latest() -> anyhow::Result<(VersionNumber, VersionNumber)> {
+        todo!("VersionNumber::latest()")
+    }
+    pub fn latest_release() -> anyhow::Result<VersionNumber> {
+        todo!("VersionNumber::latest_release()")
+        // Self::latest().map(|(v, _)| v)
+    }
+    pub fn latest_snapshot() -> anyhow::Result<VersionNumber> {
+        todo!("VersionNumber::latest_snapshot()")
+        // Self::latest().map(|(_, v)| v)
     }
 }
 
@@ -177,26 +187,6 @@ fn version_number(i: &mut &str) -> PResult<VersionNumber> {
         ))),
     ))
     .parse_next(i)
-}
-
-/// Data type representing the entries in the `versions` field of the [top-level piston-meta JSON object](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)
-///
-/// The actual JSON object also includes the `sha1` and `complianceLevel` fields, but they are not relevant for this project
-#[derive(Debug, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-struct MinecraftVersion {
-    /// Version number corresponding to the release.
-    id: VersionNumber,
-    /// Type of release, e.g. "release", "snapshot", "old_beta", "old_alpha".
-    r#type: String, // TODO: potential enum
-    /// URL pointing to the specific version manifest.
-    url: String,
-    /// Last modified time (of what? probably the manifest, but not sure).
-    time: String, // chrono::DateTime, either FixedOffset or Utc
-    /// Time of release.
-    release_time: String, // see above
-    // /// SHA-1 hash of something...
-    // sha1: String,
 }
 
 #[cfg(test)]
@@ -267,33 +257,4 @@ mod tests {
     test_parse!(parse_version4: version_number("foobar") => VersionNumber::NonStandard(_));
     test_parse!(parse_version5: version_number("") => panic);
     test_bijective!(version_bijective: version_number("foobar"));
-
-    #[test]
-    fn deserialize_minecraft_version() {
-        let json = r#"{"id": "1.21.4", "type": "release", "url": "https://piston-meta.mojang.com/v1/packages/a3bcba436caa849622fd7e1e5b89489ed6c9ac63/1.21.4.json", "time": "2024-12-03T10:24:48+00:00", "releaseTime": "2024-12-03T10:12:57+00:00", "sha1": "a3bcba436caa849622fd7e1e5b89489ed6c9ac63", "complianceLevel": 1}"#;
-        assert_eq!(
-            serde_json::from_str::<MinecraftVersion>(json).unwrap(), 
-            MinecraftVersion {
-                id: VersionNumber::Release(ReleaseVersionNumber { major: 1, minor: 21, patch: 4 }),
-                r#type: "release".into(),
-                url: "https://piston-meta.mojang.com/v1/packages/a3bcba436caa849622fd7e1e5b89489ed6c9ac63/1.21.4.json".into(),
-                time: "2024-12-03T10:24:48+00:00".into(),
-                release_time: "2024-12-03T10:12:57+00:00".into(),
-            }
-        )
-    }
-
-    #[test]
-    fn deserialize_all() {
-        let json = include_str!("../test_data/versions.json");
-        // dbg!(json);
-
-        // check that manifest versions deserialize successfully
-        let _versions: Vec<_> = serde_json::from_str::<Vec<MinecraftVersion>>(&json)
-            .unwrap()
-            .into_iter()
-            .map(|v| v.id)
-            .collect();
-        // dbg!(versions);
-    }
 }
