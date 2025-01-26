@@ -130,12 +130,19 @@ fn snapshot_version(i: &mut &str) -> PResult<SnapshotVersionNumber> {
 /// All-encompassing version number type, including versions that don't fit the three standard formats (as [`VersionNumber::NonStandard`])
 #[derive(Debug, Display, From, Deserialize, PartialEq)]
 #[serde(untagged)]
-enum VersionNumber {
+pub enum VersionNumber {
     Release(ReleaseVersionNumber),
     PreRelease(PreReleaseVersionNumber),
     Snapshot(SnapshotVersionNumber),
     // this captures old_beta, old_alpha, some 1.14 snapshots, and april fools snapshots
     NonStandard(String),
+}
+
+impl VersionNumber {
+    pub fn latest() -> Result<VersionNumber, String /* never */> {
+        todo!("fetch latest version from api")
+        // Ok(ReleaseVersionNumber { major: 1, minor: 17, patch: 1 }.into())
+    }
 }
 
 /// Parses any version number string into a `VersionNumber` with the appropriate variant
@@ -282,7 +289,11 @@ mod tests {
         // dbg!(json);
 
         // check that manifest versions deserialize successfully
-        let _versions: Vec<_> = serde_json::from_str::<Vec<MinecraftVersion>>(&json).unwrap().into_iter().map(|v| v.id).collect();
+        let _versions: Vec<_> = serde_json::from_str::<Vec<MinecraftVersion>>(&json)
+            .unwrap()
+            .into_iter()
+            .map(|v| v.id)
+            .collect();
         // dbg!(versions);
     }
 }

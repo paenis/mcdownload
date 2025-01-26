@@ -1,8 +1,7 @@
 mod parse;
 
-use crate::cli::parse::Cli;
+use crate::cli::parse::{options, Options};
 
-pub fn parse() -> Result<Cli, clap::Error> {
-    use clap::Parser;
-    Cli::try_parse()
+pub fn parse() -> Options {
+    options().run()
 }
