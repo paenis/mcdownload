@@ -21,12 +21,12 @@ struct LatestVersions {
 /// The actual JSON object also includes the `sha1` and `complianceLevel` fields, but they are not relevant for this project
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-struct MinecraftVersion {
+pub struct MinecraftVersion {
     /// Version number corresponding to the release.
     id: VersionNumber,
     /// Type of release, e.g. "release", "snapshot", "old_beta", "old_alpha".
     r#type: String, // TODO: potential enum
-    /// URL pointing to the specific version manifest.
+    /// URL pointing to the specific game version package.
     url: String,
     /// Last modified time (of what? probably the manifest, but not sure).
     time: String, // chrono::DateTime, either FixedOffset or Utc
@@ -36,13 +36,66 @@ struct MinecraftVersion {
                           // sha1: String,
 }
 
+/// Download information for a game package, i.e. client and server jars.
+#[derive(Debug, Deserialize)]
+struct Download {
+    size: u64,
+    url: String,
+}
+
+/// Java version information for a game package.
+///
+/// `component` is currently unused.
+#[derive(Debug, Deserialize)]
+struct JavaVersion {
+    component: String,
+    major_version: u8,
+}
+
+/// Package information for a specific game version, from the `url` field of the [`MinecraftVersion`] struct. Includes downloads and Java version information.
+#[derive(Debug, Deserialize)]
+pub struct GamePackage {
+    downloads: Vec<Download>,
+    id: VersionNumber,
+    java_version: JavaVersion,
+    release_time: String,
+    time: String,
+    r#type: String,
+}
+
+impl MinecraftVersion {
+    pub fn get_package(&self) -> Result<GamePackage> {
+        get(&self.url)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct VersionManifest {
     latest: LatestVersions,
     versions: Vec<MinecraftVersion>,
 }
 
-impl VersionManifest {}
+impl VersionManifest {
+    pub fn latest_release(&self) -> &MinecraftVersion {
+        self.versions
+            .iter()
+            .find(|v| v.id == self.latest.release)
+            .expect("latest release not in manifest")
+    }
+    pub fn latest_snapshot(&self) -> &MinecraftVersion {
+        self.versions
+            .iter()
+            .find(|v| v.id == self.latest.snapshot)
+            .expect("latest snapshot not in manifest")
+    }
+
+    pub fn latest_release_id(&self) -> &VersionNumber {
+        &self.latest_release().id
+    }
+    pub fn latest_snapshot_id(&self) -> &VersionNumber {
+        &self.latest_snapshot().id
+    }
+}
 
 /// Builds a URL from a relative path.
 #[inline]
@@ -64,6 +117,7 @@ fn agent() -> &'static Agent {
 
 /// Calls the Piston API and returns the parsed JSON response
 pub fn get<T: serde::de::DeserializeOwned>(path: &str) -> Result<T> {
+    // TODO: adapt to use caching
     Ok(agent().get(&piston(path)).call()?.into_json()?)
 }
 
@@ -114,7 +168,6 @@ mod tests {
     #[test]
     fn deserialize_all() {
         let json = include_str!("../../test_data/versions.json");
-        // dbg!(json);
 
         // check that manifest versions deserialize successfully
         let _versions: Vec<_> = serde_json::from_str::<Vec<MinecraftVersion>>(&json)
@@ -122,6 +175,5 @@ mod tests {
             .into_iter()
             .map(|v| v.id)
             .collect();
-        // dbg!(versions);
     }
 }

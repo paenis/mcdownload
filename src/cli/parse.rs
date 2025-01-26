@@ -1,18 +1,30 @@
-use std::str::FromStr;
-
 use bpaf::*;
 
-use crate::minecraft::VersionNumber;
+use crate::minecraft::{api, VersionNumber};
 
-#[derive(Debug)]
-pub struct Options {
-    action: Cmd,
+#[derive(Debug, Clone)]
+pub enum Options {
+    /// Show version
+    ShowVersion,
+    /// Subcommand
+    Cmd(Cmd),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Cmd {
     Install { instances: Vec<VersionNumber> },
-    Foo,
+    List { filter: ListFilter },
+}
+
+/// Filter the list of versions.
+#[derive(Debug, Clone)]
+struct ListFilter {
+    /// If true, only include installed versions. This filter is _inclusive_.
+    installed: bool,
+    /// If the corresponding element is true, include release, pre-release, snapshot, and non-standard versions.
+    ///
+    /// At least one must be true. This filter is _exclusive_.
+    included_types: (bool, bool, bool, bool),
 }
 
 fn install() -> impl Parser<Cmd> {
@@ -22,8 +34,50 @@ fn install() -> impl Parser<Cmd> {
         .argument::<VersionNumber>("VERSION")
         // .guard(|v| true /* check membership in manifest */, "version not found")
         .some("must specify at least one version")
-        .fallback_with(|| VersionNumber::latest_release().map(|v| vec![v]));
+        .fallback_with(|| api::get_manifest().map(|m| vec![m.latest_release_id().to_owned()]));
     construct!(Cmd::Install { instances })
+}
+
+fn list() -> impl Parser<Cmd> {
+    macro_rules! multi_flag {
+        [$($name:ident $short:literal $long:literal),*] => {{
+            construct!($(
+                $name(short($short).help(concat!("Include ", $long, " versions")).switch()),
+            )*)
+        }}
+    }
+
+    let all = short('a')
+        .help("Include all versions")
+        .req_flag((true, true, true, true));
+
+    let types = multi_flag![
+        r 'r' "release",
+        p 'p' "pre-release",
+        s 's' "snapshot",
+        n 'n' "non-standard"
+    ]
+    // this looks ugly
+    .map(|(r, p, s, n)| {
+        if r || p || s || n {
+            (r, p, s, n)
+        } else {
+            (true, false, false, false)
+        }
+    });
+
+    let included_types = construct!([all, types]).group_help("Version type filters");
+
+    let installed = short('i')
+        .help("Include only installed versions matching the type filters")
+        .switch();
+
+    let filter = construct!(ListFilter {
+        installed,
+        included_types,
+    });
+
+    construct!(Cmd::List { filter })
 }
 
 fn cmd() -> impl Parser<Cmd> {
@@ -32,21 +86,19 @@ fn cmd() -> impl Parser<Cmd> {
         .descr("Install versions")
         .command("install");
 
-    let foo = positional::<String>("FOO")
-        .optional()
-        .hide()
-        .map(|_| Cmd::Foo)
-        .to_options()
-        .descr("Foo")
-        .command("foo");
+    let list = list().to_options().descr("List versions").command("list");
 
-    construct!([install, foo]).group_help("subcommands")
+    construct!([install, list]).group_help("subcommands")
 }
 
 pub fn options() -> OptionParser<Options> {
-    // figure out how to show program version info with short flag
-    let action = cmd();
-    construct!(Options { action }).to_options()
+    let show_version = short('V')
+        .help("Show version")
+        .req_flag(Options::ShowVersion);
+
+    let cmd = construct!(Options::Cmd(cmd()));
+
+    construct!([show_version, cmd]).to_options()
 }
 
 // TODO: unit tests!!!

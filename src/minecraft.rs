@@ -1,4 +1,4 @@
-mod api;
+pub mod api;
 
 use std::str::FromStr;
 
@@ -13,7 +13,7 @@ use winnow::seq;
 use winnow::stream::AsChar;
 use winnow::token::take_while;
 
-#[derive(Debug, DeserializeFromStr, PartialEq)]
+#[derive(Debug, DeserializeFromStr, PartialEq, Clone)]
 pub struct ReleaseVersionNumber {
     // u8 is reasonable for Minecraft specifically; this can be easily changed
     major: u8,
@@ -61,7 +61,7 @@ fn release_version(i: &mut &str) -> PResult<ReleaseVersionNumber> {
     })
 }
 
-#[derive(Debug, Display, DeserializeFromStr, PartialEq)]
+#[derive(Debug, Display, DeserializeFromStr, PartialEq, Clone)]
 #[display("{release}-{pre_release}")]
 pub struct PreReleaseVersionNumber {
     release: ReleaseVersionNumber,
@@ -93,7 +93,7 @@ fn pre_release_version(i: &mut &str) -> PResult<PreReleaseVersionNumber> {
     })
 }
 
-#[derive(Debug, Display, DeserializeFromStr, PartialEq)]
+#[derive(Debug, Display, DeserializeFromStr, PartialEq, Clone)]
 #[display("{year}w{week}{snapshot}")]
 pub struct SnapshotVersionNumber {
     year: u8,
@@ -130,7 +130,7 @@ fn snapshot_version(i: &mut &str) -> PResult<SnapshotVersionNumber> {
 }
 
 /// All-encompassing version number type, including versions that don't fit the three standard formats (as [`VersionNumber::NonStandard`])
-#[derive(Debug, Display, From, Deserialize, PartialEq)]
+#[derive(Debug, Display, From, Deserialize, PartialEq, Clone)]
 #[serde(untagged)]
 pub enum VersionNumber {
     Release(ReleaseVersionNumber),
@@ -138,21 +138,6 @@ pub enum VersionNumber {
     Snapshot(SnapshotVersionNumber),
     // this captures old_beta, old_alpha, some 1.14 snapshots, and april fools snapshots
     NonStandard(String),
-}
-
-impl VersionNumber {
-    // maybe these make more sense on `api::VersionManifest`
-    fn latest() -> anyhow::Result<(VersionNumber, VersionNumber)> {
-        todo!("VersionNumber::latest()")
-    }
-    pub fn latest_release() -> anyhow::Result<VersionNumber> {
-        todo!("VersionNumber::latest_release()")
-        // Self::latest().map(|(v, _)| v)
-    }
-    pub fn latest_snapshot() -> anyhow::Result<VersionNumber> {
-        todo!("VersionNumber::latest_snapshot()")
-        // Self::latest().map(|(_, v)| v)
-    }
 }
 
 /// Parses any version number string into a `VersionNumber` with the appropriate variant
