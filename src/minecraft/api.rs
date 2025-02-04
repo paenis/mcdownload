@@ -1,16 +1,14 @@
-use std::sync::OnceLock;
-
 use anyhow::Result;
-use serde::Deserialize;
-use ureq::{Agent, AgentBuilder};
+use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
 
 use crate::minecraft::VersionNumber;
+use crate::net;
 
-static AGENT: OnceLock<Agent> = OnceLock::new();
 const BASE_URL: &str = "https://piston-meta.mojang.com/";
 
 // these use `VersionNumber` because it's possible that they parse as non-standard versions
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct LatestVersions {
     release: VersionNumber,
     snapshot: VersionNumber,
@@ -19,7 +17,7 @@ struct LatestVersions {
 /// Data type representing the entries in the `versions` field of the [top-level piston-meta JSON object](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)
 ///
 /// The actual JSON object also includes the `sha1` and `complianceLevel` fields, but they are not relevant for this project
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MinecraftVersion {
     /// Version number corresponding to the release.
@@ -37,7 +35,7 @@ pub struct MinecraftVersion {
 }
 
 /// Download information for a game package, i.e. client and server jars.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Download {
     size: u64,
     url: String,
@@ -46,17 +44,30 @@ struct Download {
 /// Java version information for a game package.
 ///
 /// `component` is currently unused.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct JavaVersion {
     component: String,
     major_version: u8,
 }
 
+impl Default for JavaVersion {
+    /// Creates a JavaVersion with major version 8 and unspecified component
+    fn default() -> Self {
+        Self {
+            component: String::new(),
+            major_version: 8,
+        }
+    }
+}
+
 /// Package information for a specific game version, from the `url` field of the [`MinecraftVersion`] struct. Includes downloads and Java version information.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GamePackage {
-    downloads: Vec<Download>,
+    downloads: FxHashMap<String, Download>,
     id: VersionNumber,
+    #[serde(default)]
     java_version: JavaVersion,
     release_time: String,
     time: String,
@@ -65,14 +76,14 @@ pub struct GamePackage {
 
 impl MinecraftVersion {
     pub fn get_package(&self) -> Result<GamePackage> {
-        get(&self.url)
+        net::get_cached(&self.url)
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VersionManifest {
     latest: LatestVersions,
-    versions: Vec<MinecraftVersion>,
+    pub versions: Vec<MinecraftVersion>,
 }
 
 impl VersionManifest {
@@ -112,37 +123,25 @@ fn piston(path: &str) -> String {
     format!("{BASE_URL}{path}")
 }
 
-fn build_agent() -> Agent {
-    // TODO: set user agent at compile time (e.g. vergen)
-    AgentBuilder::new()
-        .user_agent("mcdl/0.3.0")
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-}
-
-fn agent() -> &'static Agent {
-    // does cloning make sense here?
-    AGENT.get_or_init(build_agent)
-}
-
-/// Calls the Piston API and returns the parsed JSON response.
-/// 
-/// You must pass the full path to the API endpoint.
-// #[inline]
-fn get<T: serde::de::DeserializeOwned>(path: &str) -> Result<T> {
-    // TODO: adapt to use caching
-    Ok(agent().get(path).call()?.into_json()?)
-}
-
 /// Convenience method to get the Minecraft version manifest
 ///
 /// This is the same as calling `get::<VersionManifest>(&piston("mc/game/version_manifest_v2.json"))`
 pub fn get_manifest() -> Result<VersionManifest> {
-    get(&piston("mc/game/version_manifest_v2.json"))
+    net::get_cached(&piston("mc/game/version_manifest_v2.json"))
+}
+
+pub fn find_version(id: &VersionNumber) -> Option<MinecraftVersion> {
+    get_manifest()
+        .ok()?
+        .versions
+        .into_iter()
+        .find(|v| &v.id == id)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
 
     #[test]
@@ -157,14 +156,17 @@ mod tests {
     fn latest_version() {
         let manifest = get_manifest().unwrap();
         assert_eq!(manifest.latest_release_id(), &manifest.latest_release().id);
-        assert_eq!(manifest.latest_snapshot_id(), &manifest.latest_snapshot().id);
+        assert_eq!(
+            manifest.latest_snapshot_id(),
+            &manifest.latest_snapshot().id
+        );
     }
 
     #[test]
     fn deserialize_minecraft_version() {
         let json = r#"{"id": "1.21.4", "type": "release", "url": "https://piston-meta.mojang.com/v1/packages/a3bcba436caa849622fd7e1e5b89489ed6c9ac63/1.21.4.json", "time": "2024-12-03T10:24:48+00:00", "releaseTime": "2024-12-03T10:12:57+00:00", "sha1": "a3bcba436caa849622fd7e1e5b89489ed6c9ac63", "complianceLevel": 1}"#;
         assert_eq!(
-            serde_json::from_str::<MinecraftVersion>(json).unwrap(), 
+            serde_json::from_str::<MinecraftVersion>(json).unwrap(),
             MinecraftVersion {
                 id: VersionNumber::Release(crate::minecraft::ReleaseVersionNumber { major: 1, minor: 21, patch: 4 }),
                 r#type: "release".into(),
@@ -178,10 +180,15 @@ mod tests {
     #[test]
     fn deserialize_all() {
         // check that manifest versions deserialize successfully
-        let _versions: Vec<_> = get_manifest()
+        let _versions: Vec<_> = get_manifest().unwrap().into_iter().map(|v| v.id).collect();
+    }
+
+    #[test]
+    fn all_valid() {
+        // slow
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/id.list"))
             .unwrap()
-            .into_iter()
-            .map(|v| v.id)
-            .collect();
+            .lines()
+            .for_each(|v| assert!(find_version(&v.parse().unwrap()).is_some()));
     }
 }

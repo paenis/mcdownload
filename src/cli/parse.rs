@@ -32,7 +32,7 @@ fn install() -> impl Parser<Cmd> {
     let instances = short('v')
         .help("Version(s) to install. If not specified, the latest release will be used.")
         .argument::<VersionNumber>("VERSION")
-        // .guard(|v| true /* check membership in manifest */, "version not found")
+        .guard(|v| api::find_version(v).is_some(), "version not found")
         .some("must specify at least one version")
         .fallback_with(|| api::get_manifest().map(|m| vec![m.latest_release_id().to_owned()]));
     construct!(Cmd::Install { instances })

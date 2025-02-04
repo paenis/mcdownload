@@ -3,6 +3,7 @@
 mod cli;
 mod macros;
 mod minecraft;
+mod net;
 
 fn main() {
     let args = cli::parse();

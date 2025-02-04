@@ -3,22 +3,22 @@ pub mod api;
 use std::str::FromStr;
 
 use derive_more::derive::{Display, From};
-use serde::Deserialize;
-use serde_with::DeserializeFromStr;
+use serde::{Deserialize, Serialize};
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 use winnow::ascii::digit1;
-use winnow::combinator::{alt, fail, opt, preceded};
+use winnow::combinator::{alt, eof, fail, opt, peek, preceded};
 use winnow::error::{StrContext, StrContextValue};
 use winnow::prelude::*;
 use winnow::seq;
 use winnow::stream::AsChar;
 use winnow::token::take_while;
 
-#[derive(Debug, DeserializeFromStr, PartialEq, Clone)]
+#[derive(Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Clone)]
 pub struct ReleaseVersionNumber {
     // u8 is reasonable for Minecraft specifically; this can be easily changed
     major: u8,
     minor: u8,
-    patch: u8, // TODO: should this be an Option?
+    patch: u8,
 }
 
 impl std::fmt::Display for ReleaseVersionNumber {
@@ -40,7 +40,7 @@ impl FromStr for ReleaseVersionNumber {
     }
 }
 
-fn release_version(i: &mut &str) -> PResult<ReleaseVersionNumber> {
+fn release_version(i: &mut &str) -> winnow::Result<ReleaseVersionNumber> {
     let (major, minor, patch) = seq!(
         digit1.parse_to().context(StrContext::Label("major")),
         _: '.',
@@ -51,6 +51,7 @@ fn release_version(i: &mut &str) -> PResult<ReleaseVersionNumber> {
                 .context(StrContext::Label("patch"))
                 .context(StrContext::Expected(StrContextValue::Description("patch"))),
         )),
+        _: peek(alt((eof, "-"))).context(StrContext::Label("eof or pre-release")),
     )
     .parse_next(i)?;
 
@@ -61,7 +62,7 @@ fn release_version(i: &mut &str) -> PResult<ReleaseVersionNumber> {
     })
 }
 
-#[derive(Debug, Display, DeserializeFromStr, PartialEq, Clone)]
+#[derive(Debug, Display, SerializeDisplay, DeserializeFromStr, PartialEq, Clone)]
 #[display("{release}-{pre_release}")]
 pub struct PreReleaseVersionNumber {
     release: ReleaseVersionNumber,
@@ -76,7 +77,7 @@ impl FromStr for PreReleaseVersionNumber {
     }
 }
 
-fn pre_release_version(i: &mut &str) -> PResult<PreReleaseVersionNumber> {
+fn pre_release_version(i: &mut &str) -> winnow::Result<PreReleaseVersionNumber> {
     let (rv, pre_s, pre_n) = seq!(
         release_version.context(StrContext::Label("release version")),
         _: '-'.context(StrContext::Label("pre-release separator"))
@@ -93,8 +94,8 @@ fn pre_release_version(i: &mut &str) -> PResult<PreReleaseVersionNumber> {
     })
 }
 
-#[derive(Debug, Display, DeserializeFromStr, PartialEq, Clone)]
-#[display("{year}w{week}{snapshot}")]
+#[derive(Debug, Display, SerializeDisplay, DeserializeFromStr, PartialEq, Clone)]
+#[display("{year}w{week:02}{snapshot}")]
 pub struct SnapshotVersionNumber {
     year: u8,
     week: u8,
@@ -110,7 +111,7 @@ impl FromStr for SnapshotVersionNumber {
     }
 }
 
-fn snapshot_version(i: &mut &str) -> PResult<SnapshotVersionNumber> {
+fn snapshot_version(i: &mut &str) -> winnow::Result<SnapshotVersionNumber> {
     seq!(SnapshotVersionNumber {
         year: take_while(2, AsChar::is_dec_digit)
             .parse_to()
@@ -125,12 +126,13 @@ fn snapshot_version(i: &mut &str) -> PResult<SnapshotVersionNumber> {
             .parse_to()
             .context(StrContext::Label("snapshot"))
             .context(StrContext::Expected(StrContextValue::Description("lowercase letter"))),
+        _: eof
     })
     .parse_next(i)
 }
 
 /// All-encompassing version number type, including versions that don't fit the three standard formats (as [`VersionNumber::NonStandard`])
-#[derive(Debug, Display, From, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Display, From, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(untagged)]
 pub enum VersionNumber {
     Release(ReleaseVersionNumber),
@@ -149,7 +151,7 @@ impl FromStr for VersionNumber {
     }
 }
 
-fn version_number(i: &mut &str) -> PResult<VersionNumber> {
+fn version_number(i: &mut &str) -> winnow::Result<VersionNumber> {
     alt((
         // pre-release contains a release version, so it must be checked first
         pre_release_version
@@ -234,12 +236,14 @@ mod tests {
     test_parse!(parse_snapshot7: snapshot_version("17a22b") => panic);
     test_parse!(parse_snapshot8: snapshot_version("14w38.") => panic);
     test_parse!(parse_snapshot9: snapshot_version("16w19ab") => panic);
-    test_bijective!(snapshot_bijective: snapshot_version("13w24a"));
+    test_bijective!(snapshot_bijective: snapshot_version("13w04a"));
 
     test_parse!(parse_version1: version_number("1.2.3") => VersionNumber::Release(ReleaseVersionNumber { major: 1, minor: 2, patch: 3 }));
     test_parse!(parse_version2: version_number("1.2.3-pre1") => VersionNumber::PreRelease(PreReleaseVersionNumber { release: ReleaseVersionNumber { major: 1, minor: 2, patch: 3 }, pre_release: _ }));
     test_parse!(parse_version3: version_number("13w24a") => VersionNumber::Snapshot(SnapshotVersionNumber { year: 13, week: 24, snapshot: 'a' }));
     test_parse!(parse_version4: version_number("foobar") => VersionNumber::NonStandard(_));
     test_parse!(parse_version5: version_number("") => panic);
+    test_parse!(parse_version6: version_number("24w14potato") => VersionNumber::NonStandard(_));
+    test_parse!(parse_version7: version_number("1.14.2 Pre-Release 4") => VersionNumber::NonStandard(_));
     test_bijective!(version_bijective: version_number("foobar"));
 }
