@@ -76,7 +76,7 @@ pub struct GamePackage {
 
 impl MinecraftVersion {
     pub fn get_package(&self) -> Result<GamePackage> {
-        net::get_cached(&self.url)
+        net::get_cached(&self.url, None)
     }
 }
 
@@ -127,7 +127,7 @@ fn piston(path: &str) -> String {
 ///
 /// This is the same as calling `get::<VersionManifest>(&piston("mc/game/version_manifest_v2.json"))`
 pub fn get_manifest() -> Result<VersionManifest> {
-    net::get_cached(&piston("mc/game/version_manifest_v2.json"))
+    net::get_cached(&piston("mc/game/version_manifest_v2.json"), None)
 }
 
 pub fn find_version(id: &VersionNumber) -> Option<MinecraftVersion> {

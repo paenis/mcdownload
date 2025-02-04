@@ -26,8 +26,11 @@ fn get<T: DeserializeOwned>(path: &str) -> Result<T> {
 
 /// Fetches a resource either from cache or the internet, returning the parsed JSON response.
 ///
-/// Resources are cached for 10 minutes.
-pub fn get_cached<T: DeserializeOwned + Serialize>(path: &str) -> Result<T> {
+/// Resources are cached for `ttl` after the first fetch (default 10 minutes if None is provided).
+pub fn get_cached<T: DeserializeOwned + Serialize>(
+    path: &str,
+    ttl: Option<std::time::Duration>,
+) -> Result<T> {
     let key = format!("{:016x}", FxBuildHasher.hash_one(path));
     let (prefix, _) = key.split_at(2);
     let (first, second) = prefix.split_at(1);
@@ -48,8 +51,11 @@ pub fn get_cached<T: DeserializeOwned + Serialize>(path: &str) -> Result<T> {
     // fetch
     let result: T = get(path)?;
 
-    // save to cache
-    let cached = Cached::new(result, std::time::Duration::from_secs(60 * 10));
+    // save to cache, default 10 minutes
+    let cached = Cached::new(
+        result,
+        ttl.unwrap_or_else(|| std::time::Duration::from_secs(60 * 10)),
+    );
     cached.save(&cache_path)?;
 
     Ok(cached.into_inner())
@@ -111,6 +117,6 @@ mod tests {
 
     #[test]
     fn cached() {
-        let _: serde_json::Value = get_cached("https://dummyjson.com/quotes").unwrap();
+        let _: serde_json::Value = get_cached("https://dummyjson.com/quotes", None).unwrap();
     }
 }
