@@ -1,18 +1,18 @@
 [package]
 name     = "mcdl"
-version  = "0.3.0"
+version  = "0.3.1"
 authors  = ["paenis <github+paenis@cark.moe>"]
 homepage = "https://github.com/paenis/mcdownload"
 edition  = "2021"
 build    = "build.rs"
 
 [dependencies]
+ahash = { version = "0.8.11", features = ["serde"] }
 anyhow = "1.0.95"
 bpaf = "0.9.16"
+const-hex = "1.14.0"
 # clap = { version = "4.5.27", features = ["derive"] }
 derive_more = { version = "2.0.1", features = ["constructor", "display", "from"] }
-# itertools = "0.14.0"
-rustc-hash = "2.1.0"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138" 
 serde_with = "3.12.0"
@@ -51,17 +51,11 @@ rustc_version = "0.4.1"
 
 [profile.release]
 debug = 1
+lto = "thin"
 
-[profile.release-small]
-inherits  = "release"
-lto       = "thin"
-opt-level = "s"
-debug     = 0
-
-[profile.release-tiny]
+[profile.overkill]
 inherits        = "release"
-lto             = true
-opt-level       = "z"
+lto             = "fat"
 debug           = 0
 codegen-units   = 1
 strip           = "symbols"

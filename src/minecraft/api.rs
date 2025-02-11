@@ -1,5 +1,5 @@
+use ahash::AHashMap;
 use anyhow::Result;
-use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::minecraft::VersionNumber;
@@ -65,7 +65,7 @@ impl Default for JavaVersion {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GamePackage {
-    downloads: FxHashMap<String, Download>,
+    downloads: AHashMap<String, Download>,
     id: VersionNumber,
     #[serde(default)]
     java_version: JavaVersion,
