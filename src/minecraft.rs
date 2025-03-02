@@ -22,7 +22,7 @@ pub struct ReleaseVersionNumber {
 }
 
 impl std::fmt::Display for ReleaseVersionNumber {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.patch == 0 {
             write!(f, "{}.{}", self.major, self.minor)
         } else {
@@ -181,6 +181,7 @@ mod tests {
     use super::*;
     use crate::macros::assert_matches;
 
+    /// Test that a given string parses to the expected result or panics
     macro_rules! test_parse {
         ($name:ident: $parser:ident($input:expr) => panic) => {
             #[test]
@@ -201,7 +202,7 @@ mod tests {
     /// Test that a type can be parsed and then serialized back to the original string
     ///
     /// NOTE: only useful for canonical representations of the version numbers, i.e. as found in the manifest
-    macro_rules! test_bijective {
+    macro_rules! test_roundtrip {
         ($name:ident: $parser:ident($input:expr)) => {
             #[test]
             fn $name() {
@@ -219,13 +220,13 @@ mod tests {
     test_parse!(parse_release6: release_version("0.01.2") => ReleaseVersionNumber { major: 0, minor: 1, patch: 2 });
     test_parse!(parse_release7: release_version("10.12.24") => ReleaseVersionNumber { major: 10, minor: 12, patch: 24 });
     test_parse!(parse_release8: release_version("1.0.256") => panic);
-    test_bijective!(release_bijective: release_version("1.2.3"));
+    test_roundtrip!(release_roundtrip: release_version("1.2.3"));
 
     test_parse!(parse_pre_release1: pre_release_version("1.2.3-pre1") => PreReleaseVersionNumber { release: ReleaseVersionNumber { major: 1, minor: 2, patch: 3 }, pre_release: _ });
     test_parse!(parse_pre_release2: pre_release_version("1.2.3-rc") => panic);
     test_parse!(parse_pre_release3: pre_release_version("1.2.3-prea") => panic);
     test_parse!(parse_pre_release4: pre_release_version("1.2-pre99") => PreReleaseVersionNumber { release: ReleaseVersionNumber { major: 1, minor: 2, patch: 0 }, pre_release: _ });
-    test_bijective!(pre_release_bijective: pre_release_version("1.2.3-pre1"));
+    test_roundtrip!(pre_release_roundtrip: pre_release_version("1.2.3-pre1"));
 
     test_parse!(parse_snapshot1: snapshot_version("13w24a") => SnapshotVersionNumber { year: 13, week: 24, snapshot: 'a' });
     test_parse!(parse_snapshot2: snapshot_version("24w11") => panic);
@@ -236,7 +237,7 @@ mod tests {
     test_parse!(parse_snapshot7: snapshot_version("17a22b") => panic);
     test_parse!(parse_snapshot8: snapshot_version("14w38.") => panic);
     test_parse!(parse_snapshot9: snapshot_version("16w19ab") => panic);
-    test_bijective!(snapshot_bijective: snapshot_version("13w04a"));
+    test_roundtrip!(snapshot_roundtrip: snapshot_version("13w04a"));
 
     test_parse!(parse_version1: version_number("1.2.3") => VersionNumber::Release(ReleaseVersionNumber { major: 1, minor: 2, patch: 3 }));
     test_parse!(parse_version2: version_number("1.2.3-pre1") => VersionNumber::PreRelease(PreReleaseVersionNumber { release: ReleaseVersionNumber { major: 1, minor: 2, patch: 3 }, pre_release: _ }));
@@ -245,5 +246,5 @@ mod tests {
     test_parse!(parse_version5: version_number("") => panic);
     test_parse!(parse_version6: version_number("24w14potato") => VersionNumber::NonStandard(_));
     test_parse!(parse_version7: version_number("1.14.2 Pre-Release 4") => VersionNumber::NonStandard(_));
-    test_bijective!(version_bijective: version_number("foobar"));
+    test_roundtrip!(version_roundtrip: version_number("foobar"));
 }

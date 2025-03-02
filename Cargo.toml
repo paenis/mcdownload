@@ -1,10 +1,11 @@
 [package]
-name     = "mcdl"
-version  = "0.3.1"
-authors  = ["paenis <github+paenis@cark.moe>"]
-homepage = "https://github.com/paenis/mcdownload"
-edition  = "2021"
-build    = "build.rs"
+name         = "mcdl"
+version      = "0.3.1"
+authors      = ["paenis <github+paenis@cark.moe>"]
+homepage     = "https://github.com/paenis/mcdownload"
+edition      = "2024"
+build        = "build.rs"
+rust-version = "1.85.0"
 
 [dependencies]
 ahash = { version = "0.8.11", features = ["serde"] }
@@ -14,22 +15,19 @@ const-hex = "1.14.0"
 # clap = { version = "4.5.27", features = ["derive"] }
 derive_more = { version = "2.0.1", features = ["constructor", "display", "from"] }
 serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.138" 
+serde_json = "1.0.138"
 serde_with = "3.12.0"
-ureq = { version = "3.0.4", features = ["json"] }
+ureq = { version = "3.0.5", features = ["json"] }
 # toml = "0.8.19"
-winnow = "0.7.1"
+winnow = "0.7.2"
 
-# async_once = "0.2.6"
 # bytes = "1.7.0"
 # chrono = { version = "0.4.31", features = ["serde"] }
 # color-eyre = "0.6.2"
 # dialoguer = { version = "0.11.0", default-features = false }
 # directories = "5.0.1"
 # indicatif = "0.17.7"
-# lazy_static = "1.5.0"
 # parking_lot = "0.12.1"
-# paste = "1.0.14"
 # prettytable-rs = { version = "0.10.0", default-features = false }
 # reqwest = { version = "0.12.7", default-features = false, features = ["charset", "rustls-tls", "http2", "json"]}
 # rmp-serde = "1.1.2"
@@ -41,9 +39,9 @@ winnow = "0.7.1"
 # tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 [features]
-default = []
+default      = []
 bright-color = ["bpaf/bright-color"]
-dull-color = ["bpaf/dull-color"]
+dull-color   = ["bpaf/dull-color"]
 
 
 [build-dependencies]
@@ -51,7 +49,7 @@ rustc_version = "0.4.1"
 
 [profile.release]
 debug = 1
-lto = "thin"
+lto   = "thin"
 
 [profile.overkill]
 inherits        = "release"

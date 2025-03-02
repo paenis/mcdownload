@@ -7,8 +7,8 @@ use ahash::RandomState;
 use anyhow::Result;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use ureq::config::Config;
 use ureq::Agent;
+use ureq::config::Config;
 
 // should be tied to crate version, more or less
 const CACHE_VERSION: u64 = (0 << 16) | (3 << 8) | 1;
@@ -59,9 +59,9 @@ fn fetch_json<T: DeserializeOwned>(path: &str) -> Result<(T, ureq::http::Respons
                 let result = response.body_mut().read_json()?;
                 return Ok((result, response));
             }
-            Err(ureq::Error::Timeout(_))
-            | Err(ureq::Error::ConnectionFailed)
-            | Err(ureq::Error::HostNotFound) => {
+            Err(
+                ureq::Error::Timeout(_) | ureq::Error::ConnectionFailed | ureq::Error::HostNotFound,
+            ) => {
                 attempts += 1;
                 let elapsed = start_time.elapsed();
 
@@ -126,8 +126,7 @@ pub fn get_cached<T: DeserializeOwned + Serialize>(
         .filter(|h| !h.is_empty())
         .and_then(|h| h.to_str().ok())
         .and_then(|s| s.parse::<u64>().ok())
-        .map(Duration::from_secs)
-        .unwrap_or(Duration::ZERO);
+        .map_or(Duration::ZERO, Duration::from_secs);
 
     // server > provided > default
     let adjusted_ttl = server_ttl

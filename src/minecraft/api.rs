@@ -21,7 +21,7 @@ struct LatestVersions {
 #[serde(rename_all = "camelCase")]
 pub struct MinecraftVersion {
     /// Version number corresponding to the release.
-    id: VersionNumber,
+    pub id: VersionNumber,
     /// Type of release, e.g. "release", "snapshot", "old_beta", "old_alpha".
     r#type: String, // TODO: potential enum
     /// URL pointing to the specific game version package.
@@ -52,7 +52,7 @@ struct JavaVersion {
 }
 
 impl Default for JavaVersion {
-    /// Creates a JavaVersion with major version 8 and unspecified component
+    /// Creates a `JavaVersion` with major version 8 and unspecified component
     fn default() -> Self {
         Self {
             component: String::new(),

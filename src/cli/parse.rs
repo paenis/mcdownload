@@ -1,31 +1,7 @@
 use bpaf::*;
 
-use crate::minecraft::{api, VersionNumber};
-
-#[derive(Debug, Clone)]
-pub enum Options {
-    /// Show version
-    ShowVersion,
-    /// Subcommand
-    Cmd(Cmd),
-}
-
-#[derive(Debug, Clone)]
-enum Cmd {
-    Install { instances: Vec<VersionNumber> },
-    List { filter: ListFilter },
-}
-
-/// Filter the list of versions.
-#[derive(Debug, Clone)]
-struct ListFilter {
-    /// If true, only include installed versions. This filter is _inclusive_.
-    installed: bool,
-    /// If the corresponding element is true, include release, pre-release, snapshot, and non-standard versions.
-    ///
-    /// At least one must be true. This filter is _exclusive_.
-    included_types: (bool, bool, bool, bool),
-}
+use super::{Cmd, ListFilter, Options};
+use crate::minecraft::{VersionNumber, api};
 
 fn install() -> impl Parser<Cmd> {
     // NOTE: see https://docs.rs/bpaf/latest/bpaf/_documentation/_3_cookbook/_05_struct_groups/index.html for adding associated name for each instance
@@ -59,7 +35,7 @@ fn list() -> impl Parser<Cmd> {
     ]
     // this looks ugly
     .map(|(r, p, s, n)| {
-        if r || p || s || n {
+        if [r, p, s, n].into_iter().any(|b| b) {
             (r, p, s, n)
         } else {
             (true, false, false, false)
@@ -69,7 +45,7 @@ fn list() -> impl Parser<Cmd> {
     let included_types = construct!([all, types]).group_help("Version type filters");
 
     let installed = short('i')
-        .help("Include only installed versions matching the type filters")
+        .help("List installed versions instead of available versions")
         .switch();
 
     let filter = construct!(ListFilter {
