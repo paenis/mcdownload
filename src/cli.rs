@@ -1,7 +1,8 @@
+mod impls;
 mod parse;
 
 use crate::cli::parse::options;
-use crate::minecraft::{VersionNumber, api};
+use crate::minecraft::VersionNumber;
 
 pub trait Execute {
     type Error;
@@ -23,33 +24,6 @@ impl Execute for Options {
         match self {
             Options::ShowVersion => eprintln!(env!("CARGO_PKG_VERSION")),
             Options::Cmd(cmd) => cmd.execute()?,
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-enum Cmd {
-    /// Install
-    Install { instances: Vec<VersionNumber> },
-    /// List installed or available versions
-    List { filter: ListFilter },
-}
-
-impl Execute for Cmd {
-    type Error = anyhow::Error;
-    fn execute(&self) -> Result<(), Self::Error> {
-        match self {
-            Cmd::Install { instances } => println!("install {instances:?}"),
-            Cmd::List { filter } => {
-                println!("list {filter:?}");
-                api::get_manifest()?
-                    .versions
-                    .iter()
-                    .filter(|v| filter.includes(&v.id))
-                    .rev()
-                    .for_each(|v| println!("{}", v.id))
-            }
         }
         Ok(())
     }
@@ -78,6 +52,27 @@ impl ListFilter {
                 VersionNumber::NonStandard(_) => self.included_types.3,
             }
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Cmd {
+    /// Install
+    Install { versions: Vec<VersionNumber> },
+    /// List installed or available versions
+    List { filter: ListFilter },
+    /// Print information about a version
+    Info { v: VersionNumber },
+}
+
+impl Execute for Cmd {
+    type Error = anyhow::Error;
+    fn execute(&self) -> Result<(), Self::Error> {
+        Ok(match self {
+            Cmd::Install { versions } => impls::install(versions)?,
+            Cmd::List { filter } => impls::list(filter)?,
+            Cmd::Info { v } => impls::info(v)?,
+        })
     }
 }
 

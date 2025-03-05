@@ -3,15 +3,19 @@ use bpaf::*;
 use super::{Cmd, ListFilter, Options};
 use crate::minecraft::{VersionNumber, api};
 
+fn version_exists(id: &VersionNumber) -> bool {
+    api::find_version(id).is_some()
+}
+
 fn install() -> impl Parser<Cmd> {
     // NOTE: see https://docs.rs/bpaf/latest/bpaf/_documentation/_3_cookbook/_05_struct_groups/index.html for adding associated name for each instance
-    let instances = short('v')
+    let versions = short('v')
         .help("Version(s) to install. If not specified, the latest release will be used.")
         .argument::<VersionNumber>("VERSION")
-        .guard(|v| api::find_version(v).is_some(), "version not found")
+        .guard(version_exists, "version not found")
         .some("must specify at least one version")
         .fallback_with(|| api::get_manifest().map(|m| vec![m.latest_release_id().to_owned()]));
-    construct!(Cmd::Install { instances })
+    construct!(Cmd::Install { versions })
 }
 
 fn list() -> impl Parser<Cmd> {
@@ -56,6 +60,13 @@ fn list() -> impl Parser<Cmd> {
     construct!(Cmd::List { filter })
 }
 
+fn info() -> impl Parser<Cmd> {
+    let v = short('v')
+        .argument::<VersionNumber>("VERSION")
+        .guard(version_exists, "version not found");
+    construct!(Cmd::Info { v })
+}
+
 fn cmd() -> impl Parser<Cmd> {
     let install = install()
         .to_options()
@@ -64,7 +75,12 @@ fn cmd() -> impl Parser<Cmd> {
 
     let list = list().to_options().descr("List versions").command("list");
 
-    construct!([install, list]).group_help("subcommands")
+    let info = info()
+        .to_options()
+        .descr("Get information about a version")
+        .command("info");
+
+    construct!([install, list, info]).group_help("subcommands")
 }
 
 pub fn options() -> OptionParser<Options> {
@@ -77,4 +93,57 @@ pub fn options() -> OptionParser<Options> {
     construct!([show_version, cmd]).to_options()
 }
 
-// TODO: unit tests!!!
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bpaf_invariants() {
+        options().check_invariants(false);
+    }
+
+    #[test]
+    fn show_version() {
+        let ver = options().run_inner(&["-V"]).unwrap();
+        crate::macros::assert_matches!(ver, Options::ShowVersion);
+    }
+
+    #[test]
+    fn install_default() {
+        let install = options().run_inner(&["install"]).unwrap();
+        crate::macros::assert_matches!(install, Options::Cmd(Cmd::Install { versions: _ }));
+
+        let Options::Cmd(Cmd::Install {
+            versions: instances,
+        }) = install
+        else {
+            unreachable!()
+        };
+
+        assert_eq!(
+            instances,
+            vec![api::get_manifest().unwrap().latest_release_id().to_owned()]
+        );
+    }
+
+    #[test]
+    fn install_invalid() {
+        macro_rules! assert_err {
+            ($input:expr) => {
+                crate::macros::assert_matches!(
+                    options().run_inner($input),
+                    Err(ParseFailure::Stderr(_))
+                )
+            };
+        }
+
+        assert_err!(&["install", "-v"]);
+        assert_err!(&["install", "-v", "1.19."]);
+        assert_err!(&["install", "-v "]);
+        assert_err!(&["install", "-v-v", "1.19.4"]);
+        assert_err!(&["install", "-v1.19.4", "1.19.4"]);
+        assert_err!(&["install", "-v", "1.19.4", "1.19.4"]);
+        assert_err!(&["install", "-v", "foobar"]);
+        assert_err!(&["install", "-v", "1.19.4", "-v"]);
+    }
+}

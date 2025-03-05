@@ -1,10 +1,12 @@
 pub mod api;
 
+use std::fmt::Display;
 use std::str::FromStr;
 
+use bincode::{Decode, Encode};
 use derive_more::derive::{Display, From};
-use serde::{Deserialize, Serialize};
-use serde_with::{DeserializeFromStr, SerializeDisplay};
+use serde::Deserialize;
+use serde_with::DeserializeFromStr;
 use winnow::ascii::digit1;
 use winnow::combinator::{alt, eof, fail, opt, peek, preceded};
 use winnow::error::{StrContext, StrContextValue};
@@ -13,7 +15,7 @@ use winnow::seq;
 use winnow::stream::AsChar;
 use winnow::token::take_while;
 
-#[derive(Debug, SerializeDisplay, DeserializeFromStr, PartialEq, Clone)]
+#[derive(Debug, DeserializeFromStr, PartialEq, Clone, Encode, Decode)]
 pub struct ReleaseVersionNumber {
     // u8 is reasonable for Minecraft specifically; this can be easily changed
     major: u8,
@@ -21,7 +23,7 @@ pub struct ReleaseVersionNumber {
     patch: u8,
 }
 
-impl std::fmt::Display for ReleaseVersionNumber {
+impl Display for ReleaseVersionNumber {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.patch == 0 {
             write!(f, "{}.{}", self.major, self.minor)
@@ -62,7 +64,7 @@ fn release_version(i: &mut &str) -> winnow::Result<ReleaseVersionNumber> {
     })
 }
 
-#[derive(Debug, Display, SerializeDisplay, DeserializeFromStr, PartialEq, Clone)]
+#[derive(Debug, Display, DeserializeFromStr, PartialEq, Clone, Encode, Decode)]
 #[display("{release}-{pre_release}")]
 pub struct PreReleaseVersionNumber {
     release: ReleaseVersionNumber,
@@ -94,7 +96,7 @@ fn pre_release_version(i: &mut &str) -> winnow::Result<PreReleaseVersionNumber> 
     })
 }
 
-#[derive(Debug, Display, SerializeDisplay, DeserializeFromStr, PartialEq, Clone)]
+#[derive(Debug, Display, DeserializeFromStr, PartialEq, Clone, Encode, Decode)]
 #[display("{year}w{week:02}{snapshot}")]
 pub struct SnapshotVersionNumber {
     year: u8,
@@ -132,7 +134,7 @@ fn snapshot_version(i: &mut &str) -> winnow::Result<SnapshotVersionNumber> {
 }
 
 /// All-encompassing version number type, including versions that don't fit the three standard formats (as [`VersionNumber::NonStandard`])
-#[derive(Debug, Display, From, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Display, From, Deserialize, PartialEq, Clone, Encode, Decode)]
 #[serde(untagged)]
 pub enum VersionNumber {
     Release(ReleaseVersionNumber),

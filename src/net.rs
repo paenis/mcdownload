@@ -1,17 +1,19 @@
-use std::io::Write;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use ahash::RandomState;
 use anyhow::Result;
+use backon::{BackoffBuilder, BlockingRetryable, FibonacciBuilder};
+use bincode::{Decode, Encode};
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use ureq::Agent;
 use ureq::config::Config;
+use ureq::{Agent, http};
 
 // should be tied to crate version, more or less
-const CACHE_VERSION: u64 = (0 << 16) | (3 << 8) | 1;
+const CACHE_VERSION: u64 = (0 << 16) | (3 << 8) | 2;
 const DEFAULT_TTL: Duration = Duration::from_secs(600);
 // this should be deterministic (at least per version per machine) so that cache hits are consistent.
 // FxHash works well, may be worth having 2 hashers just for ease of use
@@ -26,8 +28,8 @@ const HASHER: RandomState = RandomState::with_seeds(
 /// Global ureq agent
 static AGENT: LazyLock<Agent> = LazyLock::new(|| {
     Config::builder()
-        .user_agent("mcdl/0.3.0")
-        .timeout_global(Some(std::time::Duration::from_secs(3)))
+        .user_agent(concat!("mcdl/", env!("CARGO_PKG_VERSION")))
+        .timeout_global(Some(Duration::from_secs(3)))
         .build()
         .into()
 });
@@ -46,58 +48,51 @@ fn cache_path(uri: &str) -> PathBuf {
     cache_path
 }
 
-/// Fetches a resource from the internet, returning the parsed type as well as the http response.
-fn fetch_json<T: DeserializeOwned>(path: &str) -> Result<(T, ureq::http::Response<ureq::Body>)> {
-    // TODO: make configurable. if this becomes async, can probably push this higher and error immediately when it times out
-    let max_duration = Duration::from_millis(500);
-    let start_time = std::time::Instant::now();
-    let mut attempts = 0;
-
-    loop {
-        match AGENT.get(path).call() {
-            Ok(mut response) => {
-                let result = response.body_mut().read_json()?;
-                return Ok((result, response));
+/// Fetches a resource from the internet, returning the HTTP response.
+///
+/// Will retry on error using the provided backoff strategy.
+fn fetch_remote_retry(
+    uri: &str,
+    strategy: impl BackoffBuilder,
+) -> Result<http::Response<ureq::Body>> {
+    let result = (|| AGENT.get(uri).call())
+        .retry(strategy)
+        .notify(|e, d| println!("sleeping for {d:?}: {e}"))
+        .when(|e| {
+            // retry possibly transient errors
+            match dbg!(e) {
+                ureq::Error::ConnectionFailed | ureq::Error::HostNotFound => true,
+                ureq::Error::StatusCode(n) if *n >= 500 => true,
+                _ => false,
             }
-            Err(
-                ureq::Error::Timeout(_) | ureq::Error::ConnectionFailed | ureq::Error::HostNotFound,
-            ) => {
-                attempts += 1;
-                let elapsed = start_time.elapsed();
+        })
+        .call()?;
 
-                if elapsed >= max_duration {
-                    return Err(anyhow::anyhow!(
-                        "Max retry duration exceeded after {} attempts",
-                        attempts
-                    ));
-                }
-
-                let backoff = Duration::from_millis(25 * 2_u64.pow(attempts));
-                let remaining = max_duration.saturating_sub(elapsed);
-                let sleep_time = backoff.min(remaining);
-
-                std::thread::sleep(sleep_time);
-            }
-            Err(e) => return Err(e.into()),
-        }
-    }
+    Ok(result)
 }
 
 /// Fetches a resource either from cache or the internet, returning the parsed JSON response.
 ///
 /// Resources are cached for `ttl` after the first fetch (default 10 minutes if None is provided).
 /// If `ttl` is a duration of zero, the resource is fetched immediately and no cache is created.
-pub fn get_cached<T: DeserializeOwned + Serialize>(
-    path: &str,
-    ttl: Option<std::time::Duration>,
+pub fn get_cached<T: DeserializeOwned + Decode + Encode>(
+    uri: &str,
+    ttl: Option<Duration>,
 ) -> Result<T> {
+    // TODO: use `http-cache-semantics`?
+    // use #[io_cached] from `cached`?
+    // just give up and use `reqwest` with middleware?
+
     // bypass cache if ttl is zero
     if ttl.is_some_and(|ttl| ttl.is_zero()) {
-        let (result, _) = fetch_json(path)?;
-        return Ok(result);
+        let mut response = fetch_remote_retry(
+            uri,
+            FibonacciBuilder::default().with_min_delay(Duration::from_millis(200)),
+        )?;
+        return Ok(response.body_mut().read_json()?);
     }
 
-    let cache_path = cache_path(path);
+    let cache_path = cache_path(uri);
 
     // check cache
     if let Ok(cached) = Cached::load(&cache_path) {
@@ -107,12 +102,15 @@ pub fn get_cached<T: DeserializeOwned + Serialize>(
     }
 
     // fetch
-    let (result, response) = fetch_json(path)?;
+    let mut response = fetch_remote_retry(
+        uri,
+        FibonacciBuilder::default().with_min_delay(Duration::from_millis(200)),
+    )?;
 
     // parse cache-control header
     let server_ttl = response
         .headers()
-        .get(ureq::http::header::CACHE_CONTROL)
+        .get(http::header::CACHE_CONTROL)
         .filter(|h| !h.is_empty())
         .and_then(|h| h.to_str().ok())
         .and_then(|s| s.split(',').find(|d| d.trim().starts_with("max-age=")))
@@ -122,7 +120,7 @@ pub fn get_cached<T: DeserializeOwned + Serialize>(
 
     let age = response
         .headers()
-        .get(ureq::http::header::AGE)
+        .get(http::header::AGE)
         .filter(|h| !h.is_empty())
         .and_then(|h| h.to_str().ok())
         .and_then(|s| s.parse::<u64>().ok())
@@ -133,6 +131,9 @@ pub fn get_cached<T: DeserializeOwned + Serialize>(
         .or(ttl)
         .unwrap_or(DEFAULT_TTL)
         .saturating_sub(age);
+
+    // parse from json
+    let result = response.body_mut().read_json()?;
 
     if adjusted_ttl.is_zero() {
         // cache expired, don't bother saving
@@ -146,45 +147,48 @@ pub fn get_cached<T: DeserializeOwned + Serialize>(
     Ok(cached.into_inner())
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 struct Cached<T> {
     inner: T,
-    expiry: std::time::SystemTime,
+    expiry: SystemTime,
 }
 
 impl<T> Cached<T> {
-    fn new(inner: T, ttl: std::time::Duration) -> Self {
+    fn new(inner: T, ttl: Duration) -> Self {
         Self {
             inner,
-            expiry: std::time::SystemTime::now() + ttl,
+            expiry: SystemTime::now() + ttl,
         }
     }
 
     fn is_expired(&self) -> bool {
-        std::time::SystemTime::now() > self.expiry
+        SystemTime::now() > self.expiry
     }
 
     fn save(&self, path: impl AsRef<Path>) -> Result<()>
-    where Self: Serialize {
+    where Self: Encode {
         let path = path.as_ref();
         let parent = path
             .parent()
             .ok_or_else(|| anyhow::anyhow!("invalid path"))?;
-        let data = serde_json::to_vec(self)?;
 
         if !parent.exists() {
             std::fs::create_dir_all(parent)?;
         }
-        let mut file = std::fs::File::create(path)?; // truncate if exists
-        file.write_all(&data)?;
+
+        let mut writer = BufWriter::new(File::create(path)?); // truncate if exists
+        bincode::encode_into_std_write(self, &mut writer, bincode::config::standard())?;
         Ok(())
     }
 
     fn load(path: impl AsRef<Path>) -> Result<Self>
-    where T: DeserializeOwned {
+    where T: Decode {
         let path = path.as_ref();
-        let data = std::fs::read(path)?;
-        Ok(serde_json::from_slice(&data)?)
+        let mut reader = BufReader::new(File::open(path)?);
+        Ok(bincode::decode_from_std_read(
+            &mut reader,
+            bincode::config::standard(),
+        )?)
     }
 
     fn inner(&self) -> &T {
@@ -198,23 +202,15 @@ impl<T> Cached<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use super::*;
 
     #[test]
-    fn cached() {
-        let uri = "https://dummyjson.com/quotes";
-        let cache_path = dbg!(cache_path(uri));
-
-        let _: serde_json::Value = get_cached(uri, None).unwrap();
-        assert!(cache_path.exists());
-        let _: serde_json::Value = get_cached(uri, None).unwrap();
-    }
-
-    #[test]
-    #[should_panic]
     fn not_json() {
-        let _: serde_json::Value = get_cached("https://example.com", Some(Duration::ZERO)).unwrap();
+        let uri = "https://example.com";
+        assert!(fetch_remote_retry(uri, FibonacciBuilder::default()).is_ok());
+        assert!(
+            get_cached::<()>(uri, Some(Duration::ZERO))
+                .is_err_and(|e| e.to_string().contains("json: "))
+        );
     }
 }
