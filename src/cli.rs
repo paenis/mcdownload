@@ -22,7 +22,7 @@ impl Execute for Options {
     type Error = anyhow::Error;
     fn execute(&self) -> Result<(), Self::Error> {
         match self {
-            Options::ShowVersion => eprintln!(env!("CARGO_PKG_VERSION")),
+            Options::ShowVersion => eprintln!(concat!("mcdl ", env!("CARGO_PKG_VERSION"))),
             Options::Cmd(cmd) => cmd.execute()?,
         }
         Ok(())

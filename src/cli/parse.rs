@@ -85,12 +85,15 @@ fn cmd() -> impl Parser<Cmd> {
 
 pub fn options() -> OptionParser<Options> {
     let show_version = short('V')
-        .help("Show version")
+        .long("version")
+        .help("Print version")
         .req_flag(Options::ShowVersion);
 
     let cmd = construct!(Options::Cmd(cmd()));
 
-    construct!([show_version, cmd]).to_options()
+    construct!([show_version, cmd])
+        .to_options()
+        .descr("Minecraft server manager")
 }
 
 #[cfg(test)]
