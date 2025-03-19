@@ -2,20 +2,19 @@ use bincode::de::{BorrowDecoder, Decoder};
 use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
 use bincode::{BorrowDecode, Decode, Encode};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::Deserialize;
 
-/// Wrapper type for `chrono::DateTime<Utc>`
-///
-/// This is needed because [`chrono::DateTime`] does not implement [`bincode::Encode`] or [`bincode::Decode`]
+/// Wrapper type to implement bincode serialization for timestamps
 #[derive(Debug, Deserialize, PartialEq, PartialOrd, Clone)]
 #[serde(transparent)]
-pub struct UtcDateTime(pub DateTime<Utc>);
+pub struct UtcDateTime(pub Timestamp);
 
 impl Encode for UtcDateTime {
     fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        Encode::encode(&self.0.timestamp(), encoder)?;
-        Encode::encode(&self.0.timestamp_subsec_nanos(), encoder)?;
+        let t = self.0;
+        Encode::encode(&t.as_second(), encoder)?;
+        Encode::encode(&t.subsec_nanosecond(), encoder)?;
         Ok(())
     }
 }
@@ -23,8 +22,8 @@ impl Encode for UtcDateTime {
 impl<Context> Decode<Context> for UtcDateTime {
     fn decode<D: Decoder<Context = Context>>(decoder: &mut D) -> Result<Self, DecodeError> {
         Ok(Self(
-            DateTime::from_timestamp(Decode::decode(decoder)?, Decode::decode(decoder)?)
-                .ok_or(DecodeError::Other("invalid timestamp"))?,
+            Timestamp::new(Decode::decode(decoder)?, Decode::decode(decoder)?)
+                .map_err(|_| DecodeError::Other("invalid timestamp"))?,
         ))
     }
 }
@@ -34,11 +33,11 @@ impl<'de, Context> BorrowDecode<'de, Context> for UtcDateTime {
         decoder: &mut D,
     ) -> Result<Self, DecodeError> {
         Ok(Self(
-            DateTime::from_timestamp(
+            Timestamp::new(
                 BorrowDecode::borrow_decode(decoder)?,
                 BorrowDecode::borrow_decode(decoder)?,
             )
-            .ok_or(DecodeError::Other("invalid timestamp"))?,
+            .map_err(|_| DecodeError::Other("invalid timestamp"))?,
         ))
     }
 }
