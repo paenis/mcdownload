@@ -22,9 +22,9 @@ pub(crate) fn info(v: &VersionNumber) -> anyhow::Result<()> {
     println!("info {v:?}");
 
     let package = api::find_version(v)
-        .ok_or_else(|| debug_unreachable!())?
+        .ok_or_else(|| debug_unreachable!() /* checked by parser */)?
         .get_package()?;
 
-    println!("{:#?}", package);
+    println!("{package:#?}");
     todo!()
 }

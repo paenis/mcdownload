@@ -8,7 +8,7 @@ use serde::Deserialize;
 /// Wrapper type for `chrono::DateTime<Utc>`
 ///
 /// This is needed because [`chrono::DateTime`] does not implement [`bincode::Encode`] or [`bincode::Decode`]
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, PartialOrd, Clone)]
 #[serde(transparent)]
 pub struct UtcDateTime(pub DateTime<Utc>);
 
@@ -20,8 +20,8 @@ impl Encode for UtcDateTime {
     }
 }
 
-impl Decode for UtcDateTime {
-    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+impl<Context> Decode<Context> for UtcDateTime {
+    fn decode<D: Decoder<Context = Context>>(decoder: &mut D) -> Result<Self, DecodeError> {
         Ok(Self(
             DateTime::from_timestamp(Decode::decode(decoder)?, Decode::decode(decoder)?)
                 .ok_or(DecodeError::Other("invalid timestamp"))?,
@@ -29,8 +29,10 @@ impl Decode for UtcDateTime {
     }
 }
 
-impl<'de> BorrowDecode<'de> for UtcDateTime {
-    fn borrow_decode<D: BorrowDecoder<'de>>(decoder: &mut D) -> Result<Self, DecodeError> {
+impl<'de, Context> BorrowDecode<'de, Context> for UtcDateTime {
+    fn borrow_decode<D: BorrowDecoder<'de, Context = Context>>(
+        decoder: &mut D,
+    ) -> Result<Self, DecodeError> {
         Ok(Self(
             DateTime::from_timestamp(
                 BorrowDecode::borrow_decode(decoder)?,

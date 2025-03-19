@@ -68,11 +68,13 @@ enum Cmd {
 impl Execute for Cmd {
     type Error = anyhow::Error;
     fn execute(&self) -> Result<(), Self::Error> {
-        Ok(match self {
+        match self {
             Cmd::Install { versions } => impls::install(versions)?,
             Cmd::List { filter } => impls::list(filter)?,
             Cmd::Info { v } => impls::info(v)?,
-        })
+        };
+
+        Ok(())
     }
 }
 

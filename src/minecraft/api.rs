@@ -32,7 +32,7 @@ struct LatestVersions {
 pub struct MinecraftVersion {
     /// Version number corresponding to the release.
     pub id: VersionNumber,
-    /// Type of release, e.g. "release", "snapshot", "old_beta", "old_alpha".
+    /// Type of release, e.g. "`release`", "`snapshot`", "`old_beta`", "`old_alpha`".
     r#type: String, // TODO: potential enum
     /// URL pointing to the specific game version package.
     url: String,

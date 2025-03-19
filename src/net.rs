@@ -41,11 +41,9 @@ fn cache_path(uri: &str) -> PathBuf {
     let subpath = Path::new(first).join(second).join(&key);
 
     // TODO: dedicated cache directory
-    let cache_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+    Path::new(env!("CARGO_MANIFEST_DIR"))
         .join(".cache")
-        .join(subpath);
-
-    cache_path
+        .join(subpath)
 }
 
 /// Fetches a resource from the internet, returning the HTTP response.
@@ -75,7 +73,7 @@ fn fetch_remote_retry(
 ///
 /// Resources are cached for `ttl` after the first fetch (default 10 minutes if None is provided).
 /// If `ttl` is a duration of zero, the resource is fetched immediately and no cache is created.
-pub fn get_cached<T: DeserializeOwned + Decode + Encode>(
+pub fn get_cached<T: DeserializeOwned + Decode<()> + Encode>(
     uri: &str,
     ttl: Option<Duration>,
 ) -> Result<T> {
@@ -182,7 +180,7 @@ impl<T> Cached<T> {
     }
 
     fn load(path: impl AsRef<Path>) -> Result<Self>
-    where T: Decode {
+    where T: Decode<()> {
         let path = path.as_ref();
         let mut reader = BufReader::new(File::open(path)?);
         Ok(bincode::decode_from_std_read(

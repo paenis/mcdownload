@@ -1,4 +1,4 @@
-use bpaf::*;
+use bpaf::{OptionParser, Parser, construct, short};
 
 use super::{Cmd, ListFilter, Options};
 use crate::minecraft::{VersionNumber, api};
@@ -10,7 +10,7 @@ fn version_exists(id: &VersionNumber) -> bool {
 fn install() -> impl Parser<Cmd> {
     // NOTE: see https://docs.rs/bpaf/latest/bpaf/_documentation/_3_cookbook/_05_struct_groups/index.html for adding associated name for each instance
     let versions = short('v')
-        .help("Version(s) to install. If not specified, the latest release will be used.")
+        .help("Version(s) to install")
         .argument::<VersionNumber>("VERSION")
         .guard(version_exists, "version not found")
         .some("must specify at least one version")
@@ -71,9 +71,14 @@ fn cmd() -> impl Parser<Cmd> {
     let install = install()
         .to_options()
         .descr("Install versions")
+        .header("If no versions are specified, the latest release version will be used.")
         .command("install");
 
-    let list = list().to_options().descr("List versions").command("list");
+    let list = list()
+        .to_options()
+        .descr("List versions matching the specified filters")
+        .header("If no filters are specified, only release versions will be shown.")
+        .command("list");
 
     let info = info()
         .to_options()
@@ -98,6 +103,8 @@ pub fn options() -> OptionParser<Options> {
 
 #[cfg(test)]
 mod tests {
+    use bpaf::ParseFailure;
+
     use super::*;
 
     #[test]

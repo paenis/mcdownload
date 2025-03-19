@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_with::DeserializeFromStr;
 use winnow::ascii::digit1;
 use winnow::combinator::{alt, eof, fail, opt, peek, preceded};
-use winnow::error::{StrContext, StrContextValue};
+use winnow::error::{ContextError, ParseError, StrContext, StrContextValue};
 use winnow::prelude::*;
 use winnow::seq;
 use winnow::stream::AsChar;
@@ -35,10 +35,10 @@ impl Display for ReleaseVersionNumber {
 
 impl FromStr for ReleaseVersionNumber {
     // TODO: replace error types with custom error or color_eyre::Report
-    type Err = String;
+    type Err = ContextError<StrContext>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        release_version.parse(s).map_err(|e| e.to_string())
+        release_version.parse(s).map_err(ParseError::into_inner)
     }
 }
 
@@ -72,10 +72,10 @@ pub struct PreReleaseVersionNumber {
 }
 
 impl FromStr for PreReleaseVersionNumber {
-    type Err = String;
+    type Err = ContextError<StrContext>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        pre_release_version.parse(s).map_err(|e| e.to_string())
+        pre_release_version.parse(s).map_err(ParseError::into_inner)
     }
 }
 
@@ -106,10 +106,10 @@ pub struct SnapshotVersionNumber {
 }
 
 impl FromStr for SnapshotVersionNumber {
-    type Err = String;
+    type Err = ContextError<StrContext>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        snapshot_version.parse(s).map_err(|e| e.to_string())
+        snapshot_version.parse(s).map_err(ParseError::into_inner)
     }
 }
 
@@ -146,10 +146,10 @@ pub enum VersionNumber {
 
 /// Parses any version number string into a `VersionNumber` with the appropriate variant
 impl FromStr for VersionNumber {
-    type Err = String;
+    type Err = ContextError<StrContext>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        version_number.parse(s).map_err(|e| e.to_string())
+        version_number.parse(s).map_err(ParseError::into_inner)
     }
 }
 
