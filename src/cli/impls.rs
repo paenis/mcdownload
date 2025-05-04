@@ -3,12 +3,12 @@ use crate::macros::debug_unreachable;
 use crate::minecraft::{VersionNumber, api};
 
 pub(crate) fn install(versions: &[VersionNumber]) -> anyhow::Result<()> {
-    println!("install {versions:?}");
+    tracing::debug!(?versions, "install");
     todo!()
 }
 
 pub(crate) fn list(filter: &ListFilter) -> anyhow::Result<()> {
-    println!("list {filter:?}");
+    tracing::debug!(?filter, "list");
     api::get_manifest()?
         .versions
         .iter()
@@ -19,7 +19,7 @@ pub(crate) fn list(filter: &ListFilter) -> anyhow::Result<()> {
 }
 
 pub(crate) fn info(v: &VersionNumber) -> anyhow::Result<()> {
-    println!("info {v:?}");
+    tracing::debug!(?v, "info");
 
     let package = api::find_version(v)
         .ok_or_else(|| debug_unreachable!() /* checked by parser */)?

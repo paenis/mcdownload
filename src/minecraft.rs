@@ -3,19 +3,18 @@ pub mod api;
 use std::fmt::Display;
 use std::str::FromStr;
 
-use bincode::{Decode, Encode};
 use derive_more::derive::{Display, From};
 use serde::Deserialize;
 use serde_with::DeserializeFromStr;
 use winnow::ascii::digit1;
-use winnow::combinator::{alt, eof, fail, opt, peek, preceded};
+use winnow::combinator::{alt, eof, fail, opt, peek, preceded, terminated};
 use winnow::error::{ContextError, ParseError, StrContext, StrContextValue};
 use winnow::prelude::*;
 use winnow::seq;
 use winnow::stream::AsChar;
 use winnow::token::take_while;
 
-#[derive(Debug, DeserializeFromStr, PartialEq, Clone, Encode, Decode)]
+#[derive(Debug, DeserializeFromStr, PartialEq, Clone)]
 pub struct ReleaseVersionNumber {
     // u8 is reasonable for Minecraft specifically; this can be easily changed
     major: u8,
@@ -64,7 +63,7 @@ fn release_version(i: &mut &str) -> winnow::Result<ReleaseVersionNumber> {
     })
 }
 
-#[derive(Debug, Display, DeserializeFromStr, PartialEq, Clone, Encode, Decode)]
+#[derive(Debug, Display, DeserializeFromStr, PartialEq, Clone)]
 #[display("{release}-{pre_release}")]
 pub struct PreReleaseVersionNumber {
     release: ReleaseVersionNumber,
@@ -96,7 +95,7 @@ fn pre_release_version(i: &mut &str) -> winnow::Result<PreReleaseVersionNumber> 
     })
 }
 
-#[derive(Debug, Display, DeserializeFromStr, PartialEq, Clone, Encode, Decode)]
+#[derive(Debug, Display, DeserializeFromStr, PartialEq, Clone)]
 #[display("{year}w{week:02}{snapshot}")]
 pub struct SnapshotVersionNumber {
     year: u8,
@@ -134,7 +133,7 @@ fn snapshot_version(i: &mut &str) -> winnow::Result<SnapshotVersionNumber> {
 }
 
 /// All-encompassing version number type, including versions that don't fit the three standard formats (as [`VersionNumber::NonStandard`])
-#[derive(Debug, Display, From, Deserialize, PartialEq, Clone, Encode, Decode)]
+#[derive(Debug, Display, From, Deserialize, PartialEq, Clone)]
 #[serde(untagged)]
 pub enum VersionNumber {
     Release(ReleaseVersionNumber),
@@ -153,24 +152,31 @@ impl FromStr for VersionNumber {
     }
 }
 
+#[tracing::instrument(ret, level = "trace")]
 fn version_number(i: &mut &str) -> winnow::Result<VersionNumber> {
     alt((
         // pre-release contains a release version, so it must be checked first
         pre_release_version
             .map(VersionNumber::PreRelease)
             .context(StrContext::Label("pre-release version")),
-        release_version
-            .map(VersionNumber::Release)
-            .context(StrContext::Label("release version")),
+        terminated(
+            release_version
+                .map(VersionNumber::Release)
+                .context(StrContext::Label("release version")),
+            eof,
+        ),
         snapshot_version
             .map(VersionNumber::Snapshot)
             .context(StrContext::Label("snapshot version")),
-        take_while(4.., (AsChar::is_alphanum, '.', '-', '_', ' '))
-            .map(|s: &str| VersionNumber::NonStandard(s.into()))
-            .context(StrContext::Label("non-standard version"))
-            .context(StrContext::Expected(StrContextValue::Description(
-                "[a-zA-Z0-9._- ]",
-            ))),
+        terminated(
+            take_while(4.., (AsChar::is_alphanum, '.', '-', '_', ' '))
+                .map(|s: &str| VersionNumber::NonStandard(s.into()))
+                .context(StrContext::Label("non-standard version"))
+                .context(StrContext::Expected(StrContextValue::Description(
+                    "[a-zA-Z0-9._\\- ]",
+                ))),
+            eof,
+        ),
         fail.context(StrContext::Expected(StrContextValue::Description(
             "version number (4 or more characters)",
         ))),

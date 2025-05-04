@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use bincode::{Decode, Encode};
 use serde::Deserialize;
 
-use crate::common::UtcDateTime;
 use crate::minecraft::VersionNumber;
 use crate::net;
 
@@ -18,7 +16,7 @@ macro_rules! piston {
 }
 
 // these use `VersionNumber` because it's possible that they parse as non-standard versions
-#[derive(Debug, Deserialize, Encode, Decode)]
+#[derive(Debug, Deserialize)]
 struct LatestVersions {
     release: VersionNumber,
     snapshot: VersionNumber,
@@ -27,7 +25,7 @@ struct LatestVersions {
 /// Data type representing the entries in the `versions` field of the [top-level piston-meta JSON object](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)
 ///
 /// The actual JSON object also includes the `sha1` and `complianceLevel` fields, but they are not relevant for this project
-#[derive(Debug, Deserialize, PartialEq, Encode, Decode)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MinecraftVersion {
     /// Version number corresponding to the release.
@@ -37,15 +35,15 @@ pub struct MinecraftVersion {
     /// URL pointing to the specific game version package.
     url: String,
     /// Last modified time (of what? probably the manifest, but not sure).
-    time: UtcDateTime, // chrono::DateTime, either FixedOffset or Utc
+    time: jiff::Timestamp,
     /// Time of release.
-    release_time: UtcDateTime, // see above
-                               // /// SHA-1 hash of something...
-                               // sha1: String,
+    release_time: jiff::Timestamp,
+    // /// SHA-1 hash of something...
+    // sha1: String,
 }
 
 /// Download information for a game package, i.e. client and server jars.
-#[derive(Debug, Deserialize, Encode, Decode)]
+#[derive(Debug, Deserialize)]
 struct Download {
     size: u64,
     url: String,
@@ -54,7 +52,7 @@ struct Download {
 /// Java version information for a game package.
 ///
 /// `component` is currently unused.
-#[derive(Debug, Deserialize, Encode, Decode)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct JavaVersion {
     component: String,
@@ -72,15 +70,15 @@ impl Default for JavaVersion {
 }
 
 /// Package information for a specific game version, from the `url` field of the [`MinecraftVersion`] struct. Includes downloads and Java version information.
-#[derive(Debug, Deserialize, Encode, Decode)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GamePackage {
     downloads: HashMap<String, Download>,
     id: VersionNumber,
     #[serde(default)]
     java_version: JavaVersion,
-    release_time: UtcDateTime,
-    time: UtcDateTime,
+    release_time: jiff::Timestamp,
+    time: jiff::Timestamp,
     r#type: String,
 }
 
@@ -90,7 +88,7 @@ impl MinecraftVersion {
     }
 }
 
-#[derive(Debug, Deserialize, Encode, Decode)]
+#[derive(Debug, Deserialize)]
 pub struct VersionManifest {
     latest: LatestVersions,
     pub versions: Vec<MinecraftVersion>,
@@ -135,6 +133,7 @@ pub fn get_manifest() -> Result<VersionManifest> {
 }
 
 pub fn find_version(id: &VersionNumber) -> Option<MinecraftVersion> {
+    // TODO: Result<Option<MinecraftVersion>>
     get_manifest().ok()?.into_iter().find(|v| &v.id == id)
 }
 
@@ -171,8 +170,8 @@ mod tests {
                 id: VersionNumber::Release(crate::minecraft::ReleaseVersionNumber { major: 1, minor: 21, patch: 4 }),
                 r#type: "release".into(),
                 url: "https://piston-meta.mojang.com/v1/packages/a3bcba436caa849622fd7e1e5b89489ed6c9ac63/1.21.4.json".into(),
-                time: UtcDateTime("2024-12-03T10:24:48+00:00".parse().unwrap()),
-                release_time: UtcDateTime("2024-12-03T10:12:57+00:00".parse().unwrap()),
+                time: "2024-12-03T10:24:48+00:00".parse().unwrap(),
+                release_time: "2024-12-03T10:12:57+00:00".parse().unwrap(),
             }
         )
     }
@@ -187,19 +186,26 @@ mod tests {
     fn all_valid() {
         // slow
 
+        let now = std::time::Instant::now();
         let manifest = get_manifest().unwrap();
 
-        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/id.list"))
-            .unwrap()
-            .lines()
-            .for_each(|v| {
-                assert!(
-                    manifest
-                        .versions
-                        .iter()
-                        .find(|v2| v2.id == (v.parse().unwrap()))
-                        .is_some()
-                )
-            });
+        let test_ids: Vec<VersionNumber> = std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/id.list"),
+        )
+        .unwrap()
+        .lines()
+        .map(|l| l.parse().unwrap())
+        .collect::<Vec<_>>();
+
+        let manifest_ids: Vec<VersionNumber> = manifest.into_iter().map(|v| v.id).collect();
+
+        assert!(test_ids.iter().all(|v| manifest_ids.contains(v)));
+
+        eprintln!(
+            "checked {} versions in {:?} ({:?}/version)",
+            test_ids.len(),
+            now.elapsed(),
+            now.elapsed() / test_ids.len() as u32
+        );
     }
 }

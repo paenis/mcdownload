@@ -34,7 +34,7 @@ impl Execute for Options {
 struct ListFilter {
     /// If true, only include installed versions. This filter is _inclusive_.
     installed: bool,
-    /// If the corresponding element is true, include release, pre-release, snapshot, and non-standard versions.
+    /// If the corresponding element is true, include release, pre-release, snapshot, and non-standard versions, respectively.
     ///
     /// At least one must be true. This filter is _exclusive_.
     included_types: (bool, bool, bool, bool),
