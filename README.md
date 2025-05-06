@@ -23,12 +23,8 @@ cargo install --git https://github.com/paenis/mcdownload
   - [ ] `Settings` struct
     - [ ] configure certain paths, i.e. instance dir
     - [ ] global default java flags (maybe)
-  - [x] manifest [#3][pull-3]
 - [ ] main
   - [ ] alternative outputs (JSON/debug/etc.) for info/list commands
-  - [x] `-i`/`--installed` filter for list command
-    - [x] likely depends on [#3][pull-3]
-  - [x] `tracing_error` for `eyre`, maybe
   - [ ] third-party servers (fabric, forge, etc.) [#1][pull-1]
   - [ ] instance id separate from version/multi-instance for same version
     - [ ] install-multiple support, e.g. `mcdl install -v 1.17.1 -i fabric -v 1.17.1 -i forge` or `mcdl install -v 1.17.1:forge -v 1.17.1:fabric`
@@ -36,7 +32,6 @@ cargo install --git https://github.com/paenis/mcdownload
   - [ ] fabric meta (?)
 
 [pull-1]: https://github.com/paenis/mcdownload/pull/1
-[pull-3]: https://github.com/paenis/mcdownload/pull/3
 
 ---
 

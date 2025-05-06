@@ -1,12 +1,14 @@
-use vergen_gix::{CargoBuilder, Emitter, GixBuilder};
+use rustc_version::{Channel, version_meta};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let gitcl = GixBuilder::default().sha(true).build()?;
-    let cargo = CargoBuilder::default().opt_level(true).build()?;
+fn main() {
+    println!(r#"cargo:rustc-check-cfg=cfg(channel, values("stable", "beta", "nightly", "dev"))"#);
 
-    Emitter::default()
-        .add_instructions(&gitcl)?
-        .add_instructions(&cargo)?
-        .emit()?;
-    Ok(())
+    // Set cfg flags depending on release channel
+    let channel = match version_meta().unwrap().channel {
+        Channel::Stable => "stable",
+        Channel::Beta => "beta",
+        Channel::Nightly => "nightly",
+        Channel::Dev => "dev",
+    };
+    println!(r#"cargo:rustc-cfg=channel="{channel}""#);
 }

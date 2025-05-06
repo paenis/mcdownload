@@ -1,9 +1,7 @@
 /target
-.manifest.json
-
-/libraries
-/logs
-/versions
+Cargo.lock
 
 /.idea
 /.vscode
+
+/.cache
