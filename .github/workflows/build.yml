@@ -50,7 +50,7 @@ jobs:
           cargo binstall --no-confirm cross --force
 
       - name: Build artifacts
-        run: ${{ inputs.command }} build --verbose --locked --profile ${{ inputs.profile }} --target ${{ inputs.target }}
+        run: ${{ inputs.command }} build --verbose --profile ${{ inputs.profile }} --target ${{ inputs.target }}
 
       - name: Upload artifacts
         if: ${{ inputs.upload_artifacts == 'true' }}
