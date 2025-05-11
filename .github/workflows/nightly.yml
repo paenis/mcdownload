@@ -29,3 +29,4 @@ jobs:
           runner: ${{ matrix.runner }}
           command: ${{ matrix.command }}
           upload_artifacts: true
+          artifacts_retention_days: 2

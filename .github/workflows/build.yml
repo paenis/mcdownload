@@ -12,10 +12,18 @@ on:
       command:
         required: true
         type: string
+      profile:
+        required: false
+        type: string
+        default: release
       upload_artifacts:
         required: false
         type: boolean
         default: false
+      artifacts_retention_days:
+        required: false
+        type: number
+        default: 7
 
 jobs:
   build:
@@ -42,7 +50,7 @@ jobs:
           cargo binstall --no-confirm cross --force
 
       - name: Build artifacts
-        run: ${{ inputs.command }} build --verbose --locked --release --target ${{ inputs.target }}
+        run: ${{ inputs.command }} build --verbose --locked --profile ${{ inputs.profile }} --target ${{ inputs.target }}
 
       - name: Upload artifacts
         if: ${{ inputs.upload_artifacts == 'true' }}
@@ -50,4 +58,4 @@ jobs:
         with:
           name: mcdl-${{ github.ref_name == 'refs/heads/main' && github.sha || github.ref_name }}-${{ inputs.target }}
           path: target/${{ inputs.target }}/release/mcdl
-          retention-days: 7
+          retention-days: ${{ inputs.artifacts_retention_days }}
