@@ -1,0 +1,53 @@
+name: build
+run-name: build mcdl@${{ github.ref_name == 'refs/heads/main' && github.sha || github.ref_name }}
+on: 
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+      runner:
+        required: true
+        type: string
+      command:
+        required: true
+        type: string
+      upload_artifacts:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: "${{ inputs.target }}"
+
+      - name: Setup Cache
+        if: inputs.command != 'cross'
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Cross
+        if: inputs.command == 'cross'
+        shell: bash
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall --no-confirm cross --force
+
+      - name: Build artifacts
+        run: ${{ inputs.command }} build --verbose --locked --release --target ${{ inputs.target }}
+
+      - name: Upload artifacts
+        if: ${{ inputs.upload_artifacts == 'true' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: mcdl-${{ github.ref_name == 'refs/heads/main' && github.sha || github.ref_name }}-${{ inputs.target }}
+          path: target/${{ inputs.target }}/release/mcdl
+          retention-days: 7

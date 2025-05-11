@@ -45,7 +45,7 @@ dull-color   = ["bpaf/dull-color"]
 rustc_version = "0.4.1"
 
 [profile.release]
-debug = 1
+debug = "limited"
 lto   = "thin"
 
 [profile.overkill]
@@ -53,5 +53,4 @@ inherits        = "release"
 lto             = "fat"
 debug           = 0
 codegen-units   = 1
-strip           = "symbols"
-split-debuginfo = "packed"
+strip           = true
