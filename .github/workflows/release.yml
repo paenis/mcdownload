@@ -2,7 +2,6 @@ name: release
 run-name: release mcdl@${{ github.ref_name == 'refs/heads/main' && github.sha || github.ref_name }}
 on:
   push:
-    branches: [main]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
