@@ -1,6 +1,6 @@
 [package]
 name         = "mcdl"
-version      = "0.3.3"
+version      = "0.3.4"
 authors      = ["paenis <github+paenis@cark.moe>"]
 homepage     = "https://github.com/paenis/mcdownload"
 edition      = "2024"
