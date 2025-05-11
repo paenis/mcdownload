@@ -12,7 +12,8 @@ jobs:
       target: ${{ matrix.target }}
       runner: ${{ matrix.runner }}
       command: ${{ matrix.command }}
-      upload_artifacts: false
+      upload_artifacts: true
+      artifacts_retention_days: 1
 
     strategy:
       fail-fast: false
@@ -35,8 +36,14 @@ jobs:
       contents: write
 
     steps:
-      - name: Create Release
+      - name: Get artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mcdl-*
+          path: release
+          merge-multiple: true
+      - name: Create release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: target/*/release/mcdl
+          artifacts: release/mcdl-*
           allowUpdates: true
