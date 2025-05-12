@@ -53,7 +53,7 @@ jobs:
         run: ${{ inputs.command }} build --verbose --profile ${{ inputs.profile }} --target ${{ inputs.target }}
 
       - name: Upload artifacts
-        if: ${{ inputs.upload_artifacts == 'true' }}
+        if: inputs.upload_artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mcdl-${{ github.ref_name == 'refs/heads/main' && github.sha || github.ref_name }}-${{ inputs.target }}
