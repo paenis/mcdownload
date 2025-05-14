@@ -7,7 +7,13 @@ on:
 
 jobs:
   nightly:
-    runs-on: ${{ matrix.runner }}
+    uses: paenis/mcdownload/.github/workflows/build.yml@main
+    with:
+      target: ${{ matrix.target }}
+      runner: ${{ matrix.runner }}
+      command: ${{ matrix.command }}
+      artifacts_retention_days: 2
+
     strategy:
       fail-fast: false
       matrix:
@@ -21,12 +27,3 @@ jobs:
         - target: aarch64-apple-darwin
           runner: macos-latest
           command: cargo
-    steps:
-      - name: Build artifacts
-        uses: ./build.yml
-        with:
-          target: ${{ matrix.target }}
-          runner: ${{ matrix.runner }}
-          command: ${{ matrix.command }}
-          upload_artifacts: true
-          artifacts_retention_days: 2

@@ -12,7 +12,6 @@ jobs:
       target: ${{ matrix.target }}
       runner: ${{ matrix.runner }}
       command: ${{ matrix.command }}
-      upload_artifacts: true
       artifacts_retention_days: 1
 
     strategy:
