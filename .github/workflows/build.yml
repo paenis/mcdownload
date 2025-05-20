@@ -1,5 +1,5 @@
 name: build
-run-name: build mcdl@${{ github.ref_name == 'refs/heads/main' && github.sha || github.ref_name }}
+run-name: build mcdl@${{ github.ref_name == 'main' && github.sha || github.ref_name }}
 on: 
   workflow_call:
     inputs:
@@ -53,6 +53,6 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mcdl-${{ github.ref_name == 'refs/heads/main' && github.sha || github.ref_name }}-${{ inputs.target }}
+          name: mcdl-${{ github.ref_name == 'main' && github.sha || github.ref_name }}-${{ inputs.target }}
           path: target/${{ inputs.target }}/release/mcdl${{ startsWith(inputs.runner, 'windows') && '.exe' || '' }}
           retention-days: ${{ inputs.artifacts_retention_days }}
