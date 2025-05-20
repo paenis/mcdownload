@@ -29,6 +29,8 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: rui314/setup-mold@v1
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -46,11 +48,11 @@ jobs:
           cargo binstall --no-confirm cross --force
 
       - name: Build artifacts
-        run: ${{ inputs.command }} build --verbose --profile ${{ inputs.profile }} --target ${{ inputs.target }}
+        run: ${{ inputs.command }} --config .cargo/config-ci.toml build --verbose --profile ${{ inputs.profile }} --target ${{ inputs.target }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mcdl-${{ github.ref_name == 'refs/heads/main' && github.sha || github.ref_name }}-${{ inputs.target }}
-          path: target/${{ inputs.target }}/release/mcdl
+          path: target/${{ inputs.target }}/release/mcdl${{ startsWith(inputs.runner, 'windows') && '.exe' || '' }}
           retention-days: ${{ inputs.artifacts_retention_days }}
