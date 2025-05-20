@@ -29,8 +29,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: rui314/setup-mold@v1
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -48,7 +46,7 @@ jobs:
           cargo binstall --no-confirm cross --force
 
       - name: Build artifacts
-        run: ${{ inputs.command }} --config .cargo/config-ci.toml build --verbose --profile ${{ inputs.profile }} --target ${{ inputs.target }}
+        run: ${{ inputs.command }} build --verbose --profile ${{ inputs.profile }} --target ${{ inputs.target }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

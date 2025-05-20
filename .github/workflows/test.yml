@@ -24,7 +24,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: rui314/setup-mold@v1
       - uses: Swatinem/rust-cache@v2
       - run: rustup show
       - uses: taiki-e/install-action@v2
@@ -32,7 +31,7 @@ jobs:
           tool: nextest
 
       - name: Build
-        run: cargo --config .cargo/config-ci.toml build --verbose
+        run: cargo build --verbose
 
       - name: Run tests
         run: cargo nextest run --verbose
