@@ -27,7 +27,7 @@ static CLIENT: LazyLock<ClientWithMiddleware> = LazyLock::new(|| {
 
 static RT: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
     tracing::debug!("init tokio runtime");
-    tokio::runtime::Builder::new_current_thread()
+    tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .expect("failed to build tokio runtime")
