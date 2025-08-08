@@ -103,6 +103,8 @@ pub fn options() -> OptionParser<Options> {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches::assert_matches;
+
     use bpaf::ParseFailure;
 
     use super::*;
@@ -115,13 +117,13 @@ mod tests {
     #[test]
     fn show_version() {
         let ver = options().run_inner(&["-V"]).unwrap();
-        crate::macros::assert_matches!(ver, Options::ShowVersion);
+        assert_matches!(ver, Options::ShowVersion);
     }
 
     #[test]
     fn install_default() {
         let install = options().run_inner(&["install"]).unwrap();
-        crate::macros::assert_matches!(install, Options::Cmd(Cmd::Install { versions: _ }));
+        assert_matches!(install, Options::Cmd(Cmd::Install { versions: _ }));
 
         let Options::Cmd(Cmd::Install {
             versions: instances,
@@ -140,10 +142,7 @@ mod tests {
     fn install_invalid() {
         macro_rules! assert_err {
             ($input:expr) => {
-                crate::macros::assert_matches!(
-                    options().run_inner($input),
-                    Err(ParseFailure::Stderr(_))
-                )
+                assert_matches!(options().run_inner($input), Err(ParseFailure::Stderr(_)))
             };
         }
 
