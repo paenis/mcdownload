@@ -1,6 +1,5 @@
 //! Minecraft server manager
 
-#![feature(assert_matches)]
 #![deny(rust_2018_idioms)]
 #![warn(missing_docs, clippy::all)]
 

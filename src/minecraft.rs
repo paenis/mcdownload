@@ -187,9 +187,9 @@ fn version_number(i: &mut &str) -> winnow::Result<VersionNumber> {
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches::assert_matches;
 
     use super::*;
+    use crate::macros::assert_matches;
 
     /// Test that a given string parses to the expected result or panics
     macro_rules! test_parse {

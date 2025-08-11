@@ -103,11 +103,11 @@ pub fn options() -> OptionParser<Options> {
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches::assert_matches;
 
     use bpaf::ParseFailure;
 
     use super::*;
+    use crate::macros::assert_matches;
 
     #[test]
     fn bpaf_invariants() {
