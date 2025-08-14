@@ -1,26 +1,7 @@
-//! Minecraft server manager
-
-#![deny(rust_2018_idioms)]
-#![warn(missing_docs, clippy::all)]
-
-mod cli;
-mod macros;
-mod minecraft;
-mod net;
-
-use std::sync::LazyLock;
-
-use cli::Execute;
+use clap::Parser;
+use mcdl::Mcdl;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
-
-static RT: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
-    tracing::trace!("init tokio runtime");
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .expect("failed to build tokio runtime")
-});
 
 fn install_tracing() {
     // MCDL_LOG takes precedence over RUST_LOG
@@ -35,8 +16,11 @@ fn install_tracing() {
         .init();
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     install_tracing();
 
-    cli::parse().execute().unwrap();
+    Mcdl::parse().run().await?;
+
+    Ok(())
 }

@@ -8,7 +8,8 @@ rust-version = "1.87.0"
 
 [dependencies]
 anyhow = "1.0.98"
-bpaf = "0.9.20"
+camino = "1.1.11"
+clap = { version = "4.5.45", features = ["derive", "wrap_help"] }
 const_format = { version = "0.2.34", features = ["fmt"] }
 derive_more = { version = "2.0.1", features = ["constructor", "display", "from"] }
 http-cache-reqwest = "0.16.0"
@@ -36,15 +37,10 @@ winnow = "0.7.12"
 
 [features]
 default      = []
-bright-color = ["bpaf/bright-color"]
-dull-color   = ["bpaf/dull-color"]
+
+[profile.dev]
+opt-level = 1
 
 [profile.release]
 debug = "limited"
-
-[profile.overkill]
-inherits        = "release"
-lto             = "fat"
-debug           = 0
-codegen-units   = 1
-strip           = true
+lto = "thin" # about 70% smaller (19M) with debuginfo, 6% without (4.6M)

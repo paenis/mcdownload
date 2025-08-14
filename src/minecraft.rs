@@ -143,6 +143,12 @@ pub enum VersionNumber {
     NonStandard(String),
 }
 
+impl Default for VersionNumber {
+    fn default() -> Self {
+        VersionNumber::NonStandard("".into())
+    }
+}
+
 /// Parses any version number string into a `VersionNumber` with the appropriate variant
 impl FromStr for VersionNumber {
     type Err = ContextError<StrContext>;

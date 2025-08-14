@@ -39,16 +39,11 @@ pub fn assert_matches_failed(
             r#"assertion `left matches right` failed: {args}
   left: {left:?}
  right: {right:?}"#,
-            args = args,
-            left = left,
-            right = right,
         ),
         None => panic!(
             r#"assertion `left matches right` failed:
   left: {left:?}
  right: {right:?}"#,
-            left = left,
-            right = right,
         ),
     }
 }

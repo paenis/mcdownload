@@ -1,13 +1,14 @@
 mod impls;
-mod parse;
 
-use crate::cli::parse::options;
+use std::process::Termination;
+
 use crate::minecraft::VersionNumber;
 
-pub trait Execute {
-    type Error;
+pub trait Command {
+    type Output: Termination;
+    type Error: std::fmt::Debug;
     /// Process a command using this struct.
-    fn execute(&self) -> Result<(), Self::Error>;
+    fn execute(&self) -> Result<Self::Output, Self::Error>;
 }
 
 #[derive(Debug, Clone)]
@@ -18,9 +19,10 @@ pub(super) enum Options {
     Cmd(Cmd),
 }
 
-impl Execute for Options {
+impl Command for Options {
+    type Output = ();
     type Error = anyhow::Error;
-    fn execute(&self) -> Result<(), Self::Error> {
+    fn execute(&self) -> Result<Self::Output, Self::Error> {
         match self {
             Options::ShowVersion => eprintln!(concat!("mcdl ", env!("CARGO_PKG_VERSION"))),
             Options::Cmd(cmd) => cmd.execute()?,
@@ -65,9 +67,10 @@ enum Cmd {
     Info { v: VersionNumber },
 }
 
-impl Execute for Cmd {
+impl Command for Cmd {
+    type Output = ();
     type Error = anyhow::Error;
-    fn execute(&self) -> Result<(), Self::Error> {
+    fn execute(&self) -> Result<Self::Output, Self::Error> {
         match self {
             Cmd::Install { versions } => impls::install(versions)?,
             Cmd::List { filter } => impls::list(filter)?,
@@ -76,8 +79,4 @@ impl Execute for Cmd {
 
         Ok(())
     }
-}
-
-pub fn parse() -> Options {
-    options().run()
 }
