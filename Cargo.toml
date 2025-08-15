@@ -7,14 +7,15 @@ edition      = "2024"
 rust-version = "1.87.0"
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 camino = "1.1.11"
 clap = { version = "4.5.45", features = ["derive", "wrap_help"] }
+console-subscriber = { version = "0.4.1", optional = true }
 const_format = { version = "0.2.34", features = ["fmt"] }
 derive_more = { version = "2.0.1", features = ["constructor", "display", "from"] }
 http-cache-reqwest = "0.16.0"
 jiff = { version = "0.2.15", features = ["serde"] }
-reqwest = { version = "0.12.22", default-features = false, features = ["brotli", "deflate", "gzip", "json", "rustls-tls", "zstd"] }
+reqwest = { version = "0.12.23", default-features = false, features = ["brotli", "deflate", "gzip", "json", "rustls-tls", "zstd"] }
 reqwest-middleware = "0.4.2"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.142"
@@ -36,11 +37,13 @@ winnow = "0.7.12"
 # tracing-error = "0.2.0"
 
 [features]
-default      = []
+default = []
+# only for debugging! makes the binary really big!
+console = ["dep:console-subscriber", "tokio/tracing"]
 
 [profile.dev]
 opt-level = 1
 
 [profile.release]
-debug = "limited"
-lto = "thin" # about 70% smaller (19M) with debuginfo, 6% without (4.6M)
+# debug = "limited"
+lto = "thin" # about 70% smaller with debuginfo

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use serde::Deserialize;
 
-use crate::minecraft::VersionNumber;
+use super::VersionNumber;
 use crate::net;
 
 const BASE_URL: &str = "https://piston-meta.mojang.com/";
@@ -22,16 +22,18 @@ struct LatestVersions {
     snapshot: VersionNumber,
 }
 
-/// Data type representing the entries in the `versions` field of the [top-level piston-meta JSON object](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)
+/// Data type representing the entries in the `versions` field of the [top-level piston-meta JSON object][meta]
 ///
 /// The actual JSON object also includes the `sha1` and `complianceLevel` fields, but they are not relevant for this project
+///
+/// [meta]: https://piston-meta.mojang.com/mc/game/version_manifest_v2.json
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MinecraftVersion {
     /// Version number corresponding to the release.
     pub id: VersionNumber,
-    /// Type of release, e.g. "`release`", "`snapshot`", "`old_beta`", "`old_alpha`".
-    r#type: String, // TODO: potential enum
+    /// Type of release.
+    r#type: VersionType,
     /// URL pointing to the specific game version package.
     url: String,
     /// Last modified time (of what? probably the manifest, but not sure).
@@ -40,6 +42,15 @@ pub struct MinecraftVersion {
     release_time: jiff::Timestamp,
     // /// SHA-1 hash of something...
     // sha1: String,
+}
+
+#[derive(Debug, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum VersionType {
+    Release,
+    Snapshot,
+    OldBeta,
+    OldAlpha,
 }
 
 /// Download information for a game package, i.e. client and server jars.
@@ -83,8 +94,8 @@ pub struct GamePackage {
 }
 
 impl MinecraftVersion {
-    pub fn get_package(&self) -> Result<GamePackage> {
-        crate::RT.block_on(net::get_cached(&self.url, None))
+    pub async fn get_package(&self) -> Result<GamePackage> {
+        net::get_cached(&self.url, None).await
     }
 }
 
@@ -128,16 +139,13 @@ impl IntoIterator for VersionManifest {
 /// Convenience method to get the Minecraft version manifest
 ///
 /// This is the same as calling `get_cached::<VersionManifest>(&piston("mc/game/version_manifest_v2.json"))`
-pub fn get_manifest() -> Result<VersionManifest> {
-    crate::RT.block_on(net::get_cached(
-        piston!("mc/game/version_manifest_v2.json"),
-        None,
-    ))
+pub async fn get_manifest() -> Result<VersionManifest> {
+    net::get_cached(piston!("mc/game/version_manifest_v2.json"), None).await
 }
 
-pub fn find_version(id: &VersionNumber) -> Option<MinecraftVersion> {
+pub async fn find_version(id: &VersionNumber) -> Option<MinecraftVersion> {
     // TODO: Result<Option<MinecraftVersion>>
-    get_manifest().ok()?.into_iter().find(|v| &v.id == id)
+    get_manifest().await.ok()?.into_iter().find(|v| &v.id == id)
 }
 
 #[cfg(test)]
@@ -154,9 +162,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn latest_version() {
-        let manifest = get_manifest().unwrap();
+    #[tokio::test]
+    async fn latest_version() {
+        let manifest = get_manifest().await.unwrap();
         assert_eq!(manifest.latest_release_id(), &manifest.latest_release().id);
         assert_eq!(
             manifest.latest_snapshot_id(),
@@ -170,8 +178,8 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<MinecraftVersion>(json).unwrap(),
             MinecraftVersion {
-                id: VersionNumber::Release(crate::minecraft::ReleaseVersionNumber { major: 1, minor: 21, patch: 4 }),
-                r#type: "release".into(),
+                id: VersionNumber::Release(crate::models::minecraft::ReleaseVersionNumber { major: 1, minor: 21, patch: 4 }),
+                r#type: VersionType::Release,
                 url: "https://piston-meta.mojang.com/v1/packages/a3bcba436caa849622fd7e1e5b89489ed6c9ac63/1.21.4.json".into(),
                 time: "2024-12-03T10:24:48+00:00".parse().unwrap(),
                 release_time: "2024-12-03T10:12:57+00:00".parse().unwrap(),
@@ -179,18 +187,23 @@ mod tests {
         )
     }
 
-    #[test]
-    fn deserialize_all() {
+    #[tokio::test]
+    async fn deserialize_all() {
         // check that manifest versions deserialize successfully
-        let _versions: Vec<_> = get_manifest().unwrap().into_iter().map(|v| v.id).collect();
+        let _versions: Vec<_> = get_manifest()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|v| v.id)
+            .collect();
     }
 
-    #[test]
-    fn all_valid() {
+    #[tokio::test]
+    async fn all_valid() {
         // slow
 
         let now = std::time::Instant::now();
-        let manifest = get_manifest().unwrap();
+        let manifest = get_manifest().await.unwrap();
 
         let test_ids: Vec<VersionNumber> = std::fs::read_to_string(
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/id.list"),
