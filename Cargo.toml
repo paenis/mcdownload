@@ -45,5 +45,6 @@ console = ["dep:console-subscriber", "tokio/tracing"]
 opt-level = 1
 
 [profile.release]
-# debug = "limited"
+debug = "line-tables-only"
 lto = "thin" # about 70% smaller with debuginfo
+codegen-units = 4

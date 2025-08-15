@@ -3,7 +3,7 @@
 #![deny(rust_2018_idioms)]
 #![warn(missing_docs, clippy::all)]
 
-mod commands;
+mod command;
 mod macros;
 mod models;
 mod net;
@@ -14,7 +14,7 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::prelude::*;
 
-use crate::commands::{InfoCmd, InstallCmd, ListCmd, McdlCommand};
+use crate::command::{InfoCmd, InstallCmd, ListCmd, McdlCommand, UninstallCmd};
 
 /// Minecraft server manager
 #[derive(Debug, Parser)]
@@ -93,13 +93,16 @@ enum Cmd {
     Install(InstallCmd),
     /// List installed or available Minecraft versions.
     List(ListCmd),
+    /// Uninstall a Minecraft server instance.
+    Uninstall(UninstallCmd),
 }
 
 impl McdlCommand for Mcdl {
     async fn execute(&self) -> anyhow::Result<()> {
         tracing::debug!("executing command: {:?}", self.command);
         match &self.command {
-            _ => unimplemented!(),
+            Cmd::Info(cmd) => cmd.execute().await,
+            _ => todo!(),
         }
     }
 }

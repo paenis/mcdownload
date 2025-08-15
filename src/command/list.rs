@@ -1,11 +1,13 @@
 use clap::Args;
 
+use crate::command::McdlCommand;
+
 #[derive(Debug, Args)]
 pub struct ListCmd {
     /// Show the details of installed instances, instead of available versions
     #[arg(long, short = 'i')]
-    installed_only: bool,
-    #[command(flatten, next_help_heading = "Version filters")]
+    show_installed: bool,
+    #[command(flatten, next_help_heading = "Version Filters")]
     filter: VersionTypeFilter,
 }
 
@@ -34,5 +36,11 @@ impl Default for VersionTypeFilter {
             show_snapshot: false,
             show_non_standard: false,
         }
+    }
+}
+
+impl McdlCommand for ListCmd {
+    async fn execute(&self) -> anyhow::Result<()> {
+        todo!()
     }
 }
