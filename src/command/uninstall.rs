@@ -4,6 +4,7 @@ use crate::command::McdlCommand;
 
 #[derive(Debug, Args)]
 pub struct UninstallCmd {
+    /// Name of the server instance to uninstall
     name: String,
 }
 

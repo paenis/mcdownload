@@ -51,7 +51,7 @@ impl FromStr for ServerSpec {
             Some(v) if !v.is_empty() => {
                 VersionNumber::from_str(v).map_err(|e| anyhow::anyhow!(e))?
             }
-            _ => VersionNumber::default(),
+            _ => VersionNumber::default(), // TODO: use latest release
         };
         let name = parts.next().unwrap_or("placeholder").to_string(); // TODO: Cow<'_, str> or &str
         let server_type = parts.next().unwrap_or("vanilla").to_string();

@@ -18,7 +18,7 @@ use crate::command::{InfoCmd, InstallCmd, ListCmd, McdlCommand, UninstallCmd};
 
 /// Minecraft server manager
 #[derive(Debug, Parser)]
-#[command(version, /* long_version = ..., */ about, max_term_width = 100)]
+#[command(version, long_version = "foo", about, max_term_width = 100)]
 #[doc(hidden)]
 pub struct Mcdl {
     /// Global options
@@ -77,7 +77,14 @@ impl Mcdl {
 #[derive(Debug, Args)]
 struct GlobalOpts {
     /// Color
-    #[arg(long, value_enum, global = true, default_value_t = ColorChoice::Auto)]
+    #[arg(
+        long,
+        value_enum,
+        global = true,
+        default_value_t,
+        value_name = "WHEN",
+        // hide_possible_values = true
+    )]
     color: ColorChoice,
 
     /// Verbosity level (can be set multiple times)
@@ -86,8 +93,10 @@ struct GlobalOpts {
 }
 
 #[derive(Debug, Subcommand)]
+#[command(infer_subcommands = true)]
 enum Cmd {
     /// Show information about a Minecraft version.
+    #[command(visible_alias = "show")]
     Info(InfoCmd),
     /// Install an instance of a Minecraft server.
     Install(InstallCmd),
@@ -101,8 +110,10 @@ impl McdlCommand for Mcdl {
     async fn execute(&self) -> anyhow::Result<()> {
         tracing::debug!("executing command: {:?}", self.command);
         match &self.command {
-            Cmd::Info(cmd) => cmd.execute().await,
-            _ => todo!(),
+            Cmd::Info(info) => info.execute().await,
+            Cmd::Install(install) => install.execute().await,
+            Cmd::List(list) => list.execute().await,
+            Cmd::Uninstall(uninstall) => uninstall.execute().await,
         }
     }
 }
