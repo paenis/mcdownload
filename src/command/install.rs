@@ -1,8 +1,7 @@
-use std::str::FromStr;
-
 use clap::Args;
 
-use crate::{command::McdlCommand, models::minecraft::VersionNumber};
+use crate::command::McdlCommand;
+use crate::metadata::api::models::minecraft::VersionId;
 
 /*
 `install` command should have some way of specifying version, name, and server type (e.g. fabric, forge, paper), for example:
@@ -30,37 +29,29 @@ pub struct InstallCmd {
     /// `1.19.4:my-server:fabric` will install a Fabric server with the name "my-server",
     ///
     /// `::forge` will install the latest Forge server with a random name.
-    #[clap(value_parser = ServerSpec::from_str, num_args = 2..)]
+    #[clap(value_parser = empty, num_args = 1..)]
     specs: Option<Vec<ServerSpec>>,
 }
 
+fn empty(_: &str) -> Result<ServerSpec, String> {
+    Ok(ServerSpec::empty())
+}
+
 // TODO: move
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 struct ServerSpec {
-    version: VersionNumber,
+    version: VersionId,
     name: String,
     server_type: String,
 }
 
-impl FromStr for ServerSpec {
-    type Err = anyhow::Error; // FIXME: error type
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut parts = s.split(':');
-        let version = match parts.next() {
-            Some(v) if !v.is_empty() => {
-                VersionNumber::from_str(v).map_err(|e| anyhow::anyhow!(e))?
-            }
-            _ => VersionNumber::default(), // TODO: use latest release
-        };
-        let name = parts.next().unwrap_or("placeholder").to_string(); // TODO: Cow<'_, str> or &str
-        let server_type = parts.next().unwrap_or("vanilla").to_string();
-
-        Ok(ServerSpec {
-            version,
-            name,
-            server_type,
-        })
+impl ServerSpec {
+    fn empty() -> Self {
+        Self {
+            version: VersionId::empty(),
+            name: "placeholder".into(),
+            server_type: "vanilla".into(),
+        }
     }
 }
 

@@ -5,7 +5,7 @@
 
 mod command;
 mod macros;
-mod models;
+mod metadata;
 mod net;
 
 use anyhow::Result;

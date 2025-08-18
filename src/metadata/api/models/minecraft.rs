@@ -3,23 +3,46 @@ use std::collections::HashMap;
 use anyhow::Result;
 use serde::Deserialize;
 
-use super::VersionNumber;
 use crate::net;
 
-const BASE_URL: &str = "https://piston-meta.mojang.com/";
+/// A valid Minecraft version identifier.
+#[derive(Deserialize, Clone, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct VersionId(String);
 
-/// Create a piston URL from a relative path
-macro_rules! piston {
-    ($path:expr) => {
-        const_format::concatcp!(BASE_URL, $path)
-    };
+impl VersionId {
+    // TODO: error type
+    // HACK: this isn't part of the FromStr trait in order to make it async
+    pub async fn from_str(s: &str) -> Result<Self> {
+        let manifest = get_manifest().await?;
+        if manifest.versions.iter().any(|v| v.id.0 == s) {
+            Ok(VersionId(s.to_string()))
+        } else {
+            Err(anyhow::anyhow!("Invalid version ID"))
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self("".into())
+    }
 }
 
-// these use `VersionNumber` because it's possible that they parse as non-standard versions
+impl std::fmt::Display for VersionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::fmt::Debug for VersionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct LatestVersions {
-    release: VersionNumber,
-    snapshot: VersionNumber,
+    release: VersionId,
+    snapshot: VersionId,
 }
 
 /// Data type representing the entries in the `versions` field of the [top-level piston-meta JSON object][meta]
@@ -30,8 +53,8 @@ struct LatestVersions {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MinecraftVersion {
-    /// Version number corresponding to the release.
-    pub id: VersionNumber,
+    /// A unique identifier (version number) corresponding to the release.
+    pub id: VersionId,
     /// Type of release.
     r#type: VersionType,
     /// URL pointing to the specific game version package.
@@ -47,10 +70,12 @@ pub struct MinecraftVersion {
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum VersionType {
+    /// Stable, major version releases suitable for all players.
     Release,
+    /// In-development versions that may change frequently.
     Snapshot,
-    OldBeta,
     OldAlpha,
+    OldBeta,
 }
 
 /// Download information for a game package, i.e. client and server jars.
@@ -85,7 +110,7 @@ impl Default for JavaVersion {
 #[serde(rename_all = "camelCase")]
 pub struct GamePackage {
     downloads: HashMap<String, Download>,
-    id: VersionNumber,
+    id: VersionId,
     #[serde(default)]
     java_version: JavaVersion,
     release_time: jiff::Timestamp,
@@ -119,10 +144,10 @@ impl VersionManifest {
             .expect("latest snapshot not in manifest")
     }
 
-    pub fn latest_release_id(&self) -> &VersionNumber {
+    pub fn latest_release_id(&self) -> &VersionId {
         &self.latest.release
     }
-    pub fn latest_snapshot_id(&self) -> &VersionNumber {
+    pub fn latest_snapshot_id(&self) -> &VersionId {
         &self.latest.snapshot
     }
 }
@@ -140,27 +165,30 @@ impl IntoIterator for VersionManifest {
 ///
 /// This is the same as calling `get_cached::<VersionManifest>(&piston("mc/game/version_manifest_v2.json"))`
 pub async fn get_manifest() -> Result<VersionManifest> {
-    net::get_cached(piston!("mc/game/version_manifest_v2.json"), None).await
+    net::get_cached(
+        "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
+        None,
+    )
+    .await
 }
 
-pub async fn find_version(id: &VersionNumber) -> Option<MinecraftVersion> {
-    // TODO: Result<Option<MinecraftVersion>>
-    get_manifest().await.ok()?.into_iter().find(|v| &v.id == id)
+pub async fn find_version(id: &VersionId) -> Result<MinecraftVersion> {
+    let ver = get_manifest()
+        .await?
+        .into_iter()
+        .find(|v| v.id == *id)
+        .expect("version id is valid");
+    Ok(ver)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::io::{BufRead as _, BufReader};
     use std::path::Path;
 
-    use super::*;
+    use tokio::task::JoinSet;
 
-    #[test]
-    fn create_url() {
-        assert_eq!(
-            piston!("versions"),
-            "https://piston-meta.mojang.com/versions"
-        );
-    }
+    use super::*;
 
     #[tokio::test]
     async fn latest_version() {
@@ -178,7 +206,7 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<MinecraftVersion>(json).unwrap(),
             MinecraftVersion {
-                id: VersionNumber::Release(crate::models::minecraft::ReleaseVersionNumber { major: 1, minor: 21, patch: 4 }),
+                id: VersionId("1.21.4".into()),
                 r#type: VersionType::Release,
                 url: "https://piston-meta.mojang.com/v1/packages/a3bcba436caa849622fd7e1e5b89489ed6c9ac63/1.21.4.json".into(),
                 time: "2024-12-03T10:24:48+00:00".parse().unwrap(),
@@ -205,15 +233,20 @@ mod tests {
         let now = std::time::Instant::now();
         let manifest = get_manifest().await.unwrap();
 
-        let test_ids: Vec<VersionNumber> = std::fs::read_to_string(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/id.list"),
-        )
-        .unwrap()
-        .lines()
-        .map(|l| l.parse().unwrap())
-        .collect::<Vec<_>>();
+        let mut tasks = JoinSet::new();
 
-        let manifest_ids: Vec<VersionNumber> = manifest.into_iter().map(|v| v.id).collect();
+        let reader = BufReader::new(
+            std::fs::File::open(Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/id.list"))
+                .unwrap(),
+        );
+
+        for line in reader.lines() {
+            tasks.spawn(async move { VersionId::from_str(&line.unwrap()).await.unwrap() });
+        }
+
+        let test_ids: Vec<VersionId> = tasks.join_all().await;
+
+        let manifest_ids: Vec<VersionId> = manifest.into_iter().map(|v| v.id).collect();
 
         assert!(test_ids.iter().all(|v| manifest_ids.contains(v)));
 
