@@ -18,7 +18,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"
 tokio = { version = "1.47.1", features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["parking_lot", "env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["parking_lot", "env-filter"] }
 
 # bytes = "1.7.0"
 # color-eyre = "0.6.2"
