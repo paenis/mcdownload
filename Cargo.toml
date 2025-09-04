@@ -8,7 +8,7 @@ rust-version = "1.87.0"
 
 [dependencies]
 anyhow = "1.0.99"
-clap = { version = "4.5.45", features = ["derive", "wrap_help"] }
+clap = { version = "4.5.47", features = ["derive", "wrap_help"] }
 console-subscriber = { version = "0.4.1", optional = true }
 http-cache-reqwest = "0.16.0"
 jiff = { version = "0.2.15", features = ["serde"] }
