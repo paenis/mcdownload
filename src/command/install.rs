@@ -33,6 +33,7 @@ pub struct InstallCmd {
     specs: Option<Vec<ServerSpec>>,
 }
 
+// FIXME: this is here to satisfy clap's need for a value parser. replace with actual implementation.
 fn empty(_: &str) -> Result<ServerSpec, String> {
     Ok(ServerSpec::empty())
 }
@@ -46,6 +47,7 @@ struct ServerSpec {
 }
 
 impl ServerSpec {
+    // FIXME: placeholder implementation
     fn empty() -> Self {
         Self {
             version: VersionId::empty(),

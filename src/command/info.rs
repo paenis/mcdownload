@@ -10,6 +10,7 @@ pub struct InfoCmd {
     version: VersionId,
 }
 
+// FIXME: this is here to satisfy clap's need for a value parser. replace with actual implementation.
 fn empty(_: &str) -> Result<VersionId, String> {
     Ok(VersionId::empty())
 }

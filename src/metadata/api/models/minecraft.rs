@@ -22,6 +22,7 @@ impl VersionId {
         }
     }
 
+    // FIXME: placeholder implementation
     pub fn empty() -> Self {
         Self("".into())
     }

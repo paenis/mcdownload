@@ -7,18 +7,18 @@ edition      = "2024"
 rust-version = "1.87.0"
 
 [dependencies]
-anyhow = "1.0.99"
-clap = { version = "4.5.45", features = ["derive", "wrap_help"] }
+anyhow = "1.0.100"
+clap = { version = "4.5.49", features = ["derive", "wrap_help"] }
 console-subscriber = { version = "0.4.1", optional = true }
 http-cache-reqwest = "0.16.0"
 jiff = { version = "0.2.15", features = ["serde"] }
-reqwest = { version = "0.12.23", default-features = false, features = ["brotli", "deflate", "gzip", "json", "rustls-tls", "zstd"] }
+reqwest = { version = "0.12.24", default-features = false, features = ["brotli", "deflate", "gzip", "json", "rustls-tls", "zstd"] }
 reqwest-middleware = "0.4.2"
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.142"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 tokio = { version = "1.47.1", features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["parking_lot", "env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["parking_lot", "env-filter"] }
 
 # bytes = "1.7.0"
 # color-eyre = "0.6.2"
