@@ -1,7 +1,7 @@
 use clap::Args;
 
 use crate::command::McdlCommand;
-use crate::metadata::api::models::minecraft::VersionId;
+use crate::metadata::ServerSpec;
 
 /*
 `install` command should have some way of specifying version, name, and server type (e.g. fabric, forge, paper), for example:
@@ -29,36 +29,13 @@ pub struct InstallCmd {
     /// `1.19.4:my-server:fabric` will install a Fabric server with the name "my-server",
     ///
     /// `::forge` will install the latest Forge server with a random name.
-    #[clap(value_parser = empty, num_args = 1..)]
+    #[clap(num_args = 1..)]
     specs: Option<Vec<ServerSpec>>,
-}
-
-// FIXME: this is here to satisfy clap's need for a value parser. replace with actual implementation.
-fn empty(_: &str) -> Result<ServerSpec, String> {
-    Ok(ServerSpec::empty())
-}
-
-// TODO: move
-#[derive(Debug, Clone)]
-struct ServerSpec {
-    version: VersionId,
-    name: String,
-    server_type: String,
-}
-
-impl ServerSpec {
-    // FIXME: placeholder implementation
-    fn empty() -> Self {
-        Self {
-            version: VersionId::empty(),
-            name: "placeholder".into(),
-            server_type: "vanilla".into(),
-        }
-    }
 }
 
 impl McdlCommand for InstallCmd {
     async fn execute(&self) -> anyhow::Result<()> {
-        todo!()
+        // todo!()
+        Ok(())
     }
 }

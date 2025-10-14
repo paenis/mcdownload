@@ -1,26 +1,35 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::Result as AResult;
 use serde::Deserialize;
-use tokio::runtime::Handle;
+use thiserror::Error;
 
-use crate::net;
+use crate::macros::wait;
+use crate::net::{self, NetError};
+
+#[derive(Error, Debug)]
+pub enum VersionIdParseError {
+    #[error("network error when getting valid versions: {0}")]
+    Network(#[from] NetError),
+    #[error("version is invalid")]
+    Invalid,
+}
 
 /// A valid Minecraft version identifier.
 #[derive(Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(transparent)]
-pub struct VersionId(String);
+pub struct VersionId(pub(in crate::metadata) String);
 
 impl VersionId {
     // TODO: error type
     // HACK: this isn't part of the FromStr trait in order to make it async
     /// Parse a version ID from a string.
-    pub async fn from_str(s: &str) -> Result<Self> {
+    pub async fn from_str(s: &str) -> Result<Self, VersionIdParseError> {
         let manifest = get_manifest().await?;
         if manifest.versions.iter().any(|v| v.id.0 == s) {
             Ok(VersionId(s.to_string()))
         } else {
-            Err(anyhow::anyhow!("Invalid version ID"))
+            Err(VersionIdParseError::Invalid)
         }
     }
 
@@ -28,14 +37,18 @@ impl VersionId {
     ///
     /// NOTE: this function will block the current thread while it runs, so it should ONLY be
     /// used in contexts where async code cannot be used and/or blocking is acceptable.
-    pub fn from_str_sync(s: &str) -> Result<Self> {
+    pub fn from_str_sync(s: &str) -> Result<Self, VersionIdParseError> {
         // really evil hack to run async code in a sync context
-        tokio::task::block_in_place(move || Handle::current().block_on(Self::from_str(s)))
+        wait!(Self::from_str(s))
     }
+}
 
-    // FIXME: placeholder implementation
-    pub fn empty() -> Self {
-        Self("".into())
+impl Default for VersionId {
+    fn default() -> Self {
+        let Ok(v) = wait!(async { get_manifest().await }) else {
+            panic!("failed to get manifest");
+        };
+        v.latest.release
     }
 }
 
@@ -131,8 +144,8 @@ pub struct GamePackage {
 }
 
 impl MinecraftVersion {
-    pub async fn get_package(&self) -> Result<GamePackage> {
-        net::get_cached(&self.url, None).await
+    pub async fn get_package(&self) -> AResult<GamePackage> {
+        Ok(net::get_cached(&self.url, None).await?)
     }
 }
 
@@ -176,7 +189,7 @@ impl IntoIterator for VersionManifest {
 /// Convenience method to get the Minecraft version manifest
 ///
 /// This is the same as calling `get_cached::<VersionManifest>(&piston("mc/game/version_manifest_v2.json"))`
-pub async fn get_manifest() -> Result<VersionManifest> {
+pub async fn get_manifest() -> Result<VersionManifest, NetError> {
     net::get_cached(
         "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
         None,
@@ -184,7 +197,7 @@ pub async fn get_manifest() -> Result<VersionManifest> {
     .await
 }
 
-pub async fn find_version(id: &VersionId) -> Result<MinecraftVersion> {
+pub async fn find_version(id: &VersionId) -> AResult<MinecraftVersion> {
     let ver = get_manifest()
         .await?
         .into_iter()

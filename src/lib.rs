@@ -4,6 +4,7 @@
 #![warn(missing_docs, clippy::all)]
 
 mod command;
+mod identifiers;
 mod macros;
 mod metadata;
 mod net;

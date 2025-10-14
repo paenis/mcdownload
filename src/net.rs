@@ -1,10 +1,10 @@
 use std::sync::LazyLock;
 use std::time::Duration;
 
-use anyhow::Result;
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache, HttpCacheOptions};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use serde::de::DeserializeOwned;
+use thiserror::Error;
 
 static CLIENT: LazyLock<ClientWithMiddleware> = LazyLock::new(|| {
     const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
@@ -23,8 +23,20 @@ static CLIENT: LazyLock<ClientWithMiddleware> = LazyLock::new(|| {
     ClientBuilder::new(client).with(cache).build()
 });
 
+#[derive(Error, Debug)]
+pub enum NetError {
+    #[error("failed to fetch resource")]
+    Fetch(#[from] reqwest_middleware::Error),
+    // TODO: better error handling here
+    #[error("failed to deserialize response")]
+    Deserialize(#[from] reqwest::Error),
+}
+
 /// Fetches a resource either from cache or the internet, returning the parsed JSON response.
-pub async fn get_cached<T: DeserializeOwned>(uri: &str, mode: Option<CacheMode>) -> Result<T> {
+pub async fn get_cached<T: DeserializeOwned>(
+    uri: &str,
+    mode: Option<CacheMode>,
+) -> Result<T, NetError> {
     // fetch
     let response = match mode {
         Some(mode) => CLIENT.get(uri).with_extension(mode).send().await?,
