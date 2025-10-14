@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use serde::Deserialize;
+use tokio::runtime::Handle;
 
 use crate::net;
 
@@ -13,6 +14,7 @@ pub struct VersionId(String);
 impl VersionId {
     // TODO: error type
     // HACK: this isn't part of the FromStr trait in order to make it async
+    /// Parse a version ID from a string.
     pub async fn from_str(s: &str) -> Result<Self> {
         let manifest = get_manifest().await?;
         if manifest.versions.iter().any(|v| v.id.0 == s) {
@@ -20,6 +22,15 @@ impl VersionId {
         } else {
             Err(anyhow::anyhow!("Invalid version ID"))
         }
+    }
+
+    /// Synchronous version of `from_str`, for use in clap value parsers
+    ///
+    /// NOTE: this function will block the current thread while it runs, so it should ONLY be
+    /// used in contexts where async code cannot be used and/or blocking is acceptable.
+    pub fn from_str_sync(s: &str) -> Result<Self> {
+        // really evil hack to run async code in a sync context
+        tokio::task::block_in_place(move || Handle::current().block_on(Self::from_str(s)))
     }
 
     // FIXME: placeholder implementation
