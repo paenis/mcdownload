@@ -53,20 +53,15 @@ pub struct ServerSpec {
     server_type: ServerKind,
 }
 
-impl ServerSpec {}
-
 fn parse_server_spec(input: &mut &str) -> ModalResult<ServerSpec> {
     let mut version = alt((
         // empty input or empty version field
         eof.default_value(),
         ':'.default_value(),
         // version present
-        cut_err(
-            alt((terminated(take_until(1.., ':'), ':'), rest)).try_map(VersionId::from_str_sync),
-        )
-        .context(StrContext::Expected(StrContextValue::Description(
-            "valid version number",
-        ))),
+        cut_err(alt((terminated(take_until(1.., ':'), ':'), rest)).parse_to()).context(
+            StrContext::Expected(StrContextValue::Description("valid version number")),
+        ),
     ));
 
     let mut id = alt((
@@ -86,9 +81,9 @@ fn parse_server_spec(input: &mut &str) -> ModalResult<ServerSpec> {
 
     let mut server_type = alt((
         eof.default_value(),
-        cut_err(rest.try_map(|s: &str| s.parse::<ServerKind>())).context(StrContext::Expected(
-            StrContextValue::Description("a valid server type"),
-        )),
+        cut_err(rest.parse_to()).context(StrContext::Expected(StrContextValue::Description(
+            "a valid server type",
+        ))),
     ));
 
     seq!(ServerSpec {
@@ -109,6 +104,16 @@ impl FromStr for ServerSpec {
     }
 }
 
+impl Default for ServerSpec {
+    fn default() -> Self {
+        ServerSpec {
+            version: VersionId::default(),
+            id: NamedId::new("unnamed".to_string()),
+            server_type: ServerKind::Vanilla,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -119,7 +124,7 @@ mod tests {
 
         let spec: ServerSpec = "1.20.1".parse().unwrap();
         dbg!(&spec);
-        assert_eq!(spec.version, VersionId("1.20.1".to_string()));
+        assert_eq!(spec.version.as_str(), "1.20.1");
         assert_eq!(spec.server_type, ServerKind::Vanilla);
 
         let spec: ServerSpec = "::forge".parse().unwrap();

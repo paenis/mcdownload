@@ -59,10 +59,9 @@ mod tests {
         let response = CLIENT.get(uri).send().await;
 
         assert!(response.is_ok());
-        assert!(
-            get_cached::<()>(uri, None)
-                .await
-                .is_err_and(|e| e.to_string().contains("decoding"))
-        );
+        match get_cached::<()>(uri, None).await {
+            Err(NetError::Deserialize(e)) if e.is_decode() => {}
+            v => panic!("expected decode error, got {v:?}"),
+        }
     }
 }

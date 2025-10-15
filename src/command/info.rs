@@ -6,7 +6,6 @@ use crate::metadata::api::models::minecraft::VersionId;
 #[derive(Debug, Args)]
 pub struct InfoCmd {
     /// The version to show information about
-    #[clap(value_parser = VersionId::from_str_sync)]
     version: VersionId,
 }
 

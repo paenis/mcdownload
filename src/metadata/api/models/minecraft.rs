@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::str::FromStr;
+use std::sync::LazyLock;
 
 use anyhow::Result as AResult;
 use serde::Deserialize;
@@ -6,6 +8,14 @@ use thiserror::Error;
 
 use crate::macros::wait;
 use crate::net::{self, NetError};
+
+static MANIFEST: LazyLock<VersionManifest> = LazyLock::new(|| {
+    wait!(net::get_cached(
+        "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
+        None,
+    ))
+    .expect("Failed to fetch Minecraft version manifest from Mojang API")
+});
 
 #[derive(Error, Debug)]
 pub enum VersionIdParseError {
@@ -18,37 +28,29 @@ pub enum VersionIdParseError {
 /// A valid Minecraft version identifier.
 #[derive(Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(transparent)]
-pub struct VersionId(pub(in crate::metadata) String);
+pub struct VersionId(String);
 
 impl VersionId {
-    // TODO: error type
-    // HACK: this isn't part of the FromStr trait in order to make it async
-    /// Parse a version ID from a string.
-    pub async fn from_str(s: &str) -> Result<Self, VersionIdParseError> {
-        let manifest = get_manifest().await?;
-        if manifest.versions.iter().any(|v| v.id.0 == s) {
+    /// Get the version ID as a string slice.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for VersionId {
+    type Err = VersionIdParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if MANIFEST.versions.iter().any(|v| v.id.0 == s) {
             Ok(VersionId(s.to_string()))
         } else {
             Err(VersionIdParseError::Invalid)
         }
     }
-
-    /// Synchronous version of `from_str`, for use in clap value parsers
-    ///
-    /// NOTE: this function will block the current thread while it runs, so it should ONLY be
-    /// used in contexts where async code cannot be used and/or blocking is acceptable.
-    pub fn from_str_sync(s: &str) -> Result<Self, VersionIdParseError> {
-        // really evil hack to run async code in a sync context
-        wait!(Self::from_str(s))
-    }
 }
 
 impl Default for VersionId {
     fn default() -> Self {
-        let Ok(v) = wait!(async { get_manifest().await }) else {
-            panic!("failed to get manifest");
-        };
-        v.latest.release
+        MANIFEST.latest.release.clone()
     }
 }
 
@@ -186,23 +188,12 @@ impl IntoIterator for VersionManifest {
     }
 }
 
-/// Convenience method to get the Minecraft version manifest
-///
-/// This is the same as calling `get_cached::<VersionManifest>(&piston("mc/game/version_manifest_v2.json"))`
-pub async fn get_manifest() -> Result<VersionManifest, NetError> {
-    net::get_cached(
-        "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
-        None,
-    )
-    .await
-}
-
-pub async fn find_version(id: &VersionId) -> AResult<MinecraftVersion> {
-    let ver = get_manifest()
-        .await?
-        .into_iter()
+pub async fn find_version(id: &VersionId) -> AResult<&'static MinecraftVersion> {
+    let ver = MANIFEST
+        .versions
+        .iter()
         .find(|v| v.id == *id)
-        .expect("version id is valid");
+        .expect("valid version id should be in manifest");
     Ok(ver)
 }
 
@@ -211,17 +202,14 @@ mod tests {
     use std::io::{BufRead as _, BufReader};
     use std::path::Path;
 
-    use tokio::task::JoinSet;
-
     use super::*;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn latest_version() {
-        let manifest = get_manifest().await.unwrap();
-        assert_eq!(manifest.latest_release_id(), &manifest.latest_release().id);
+        assert_eq!(MANIFEST.latest_release_id(), &MANIFEST.latest_release().id);
         assert_eq!(
-            manifest.latest_snapshot_id(),
-            &manifest.latest_snapshot().id
+            MANIFEST.latest_snapshot_id(),
+            &MANIFEST.latest_snapshot().id
         );
     }
 
@@ -240,38 +228,27 @@ mod tests {
         )
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn deserialize_all() {
         // check that manifest versions deserialize successfully
-        let _versions: Vec<_> = get_manifest()
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|v| v.id)
-            .collect();
+        let _versions: Vec<_> = MANIFEST.versions.iter().map(|v| v.id.clone()).collect();
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn all_valid() {
-        // slow
-
         let now = std::time::Instant::now();
-        let manifest = get_manifest().await.unwrap();
-
-        let mut tasks = JoinSet::new();
 
         let reader = BufReader::new(
             std::fs::File::open(Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/id.list"))
                 .unwrap(),
         );
 
-        for line in reader.lines() {
-            tasks.spawn(async move { VersionId::from_str(&line.unwrap()).await.unwrap() });
-        }
+        let test_ids: Vec<VersionId> = reader
+            .lines()
+            .map(|l| VersionId::from_str(&l.unwrap()).unwrap())
+            .collect();
 
-        let test_ids: Vec<VersionId> = tasks.join_all().await;
-
-        let manifest_ids: Vec<VersionId> = manifest.into_iter().map(|v| v.id).collect();
+        let manifest_ids: Vec<VersionId> = MANIFEST.versions.iter().map(|v| v.id.clone()).collect();
 
         assert!(test_ids.iter().all(|v| manifest_ids.contains(v)));
 

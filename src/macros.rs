@@ -13,6 +13,14 @@ macro_rules! debug_unreachable {
     };
 }
 
+/// Synchronously wait for an async expression to complete.
+///
+/// This macro is intended for use in contexts where async code cannot be used,
+/// but the thread is running inside a Tokio runtime.
+///
+/// # Panics
+///
+/// This macro will panic if it is called outside of a Tokio runtime.
 macro_rules! wait {
     ($e:expr) => {
         tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on($e))

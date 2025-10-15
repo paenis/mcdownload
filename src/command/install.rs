@@ -12,8 +12,6 @@ mcdl install -v 1.20.1 -n foo -s fabric -v 1.19.4 -n bar -s forge
 
 this type of positional argument grouping is not easy to implement with clap's current API, so it might require delimiting the arguments:
 mcdl install -v 1.20.1:<name>:<server type> [-v ...]
-
-this kinda sucks (what if i want to leave out the name?), so i might want to switch to `bpaf` instead of `clap`
 */
 
 #[derive(Debug, Args)]
@@ -21,14 +19,14 @@ pub struct InstallCmd {
     /// Specifications of the server instances to install
     ///
     /// Each item should be formatted as [<version>][:[<name>][:[<server type>]]].
-    /// If any part is omitted, it will use default values (i.e. latest version, random name, vanilla server).
+    /// If any part is omitted, it will use default values (i.e. latest version, "unnamed", vanilla server).
     /// For example:
     ///
-    /// `1.20.1` will install a vanilla server with a random name,
+    /// `1.20.1` will install a 1.20.1 vanilla server, called "unnamed",
     ///
-    /// `1.19.4:my-server:fabric` will install a Fabric server with the name "my-server",
+    /// `1.19.4:my-server:fabric` will install a 1.19.4 Fabric server with the name "my-server",
     ///
-    /// `::forge` will install the latest Forge server with a random name.
+    /// `::forge` will install the latest Forge server, called "unnamed".
     #[clap(num_args = 1..)]
     specs: Option<Vec<ServerSpec>>,
 }
