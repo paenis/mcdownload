@@ -131,7 +131,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn doesnt_panic() {
-        proptest!(|(input in "\\PC")| {
+        proptest!(|(input in "\\PC*")| {
             let _ = parse_server_spec(&mut &input[..]);
         });
     }
