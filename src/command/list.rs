@@ -40,7 +40,8 @@ impl Default for VersionTypeFilter {
 }
 
 impl McdlCommand for ListCmd {
-    async fn execute(&self) -> anyhow::Result<()> {
+    #[tracing::instrument]
+    async fn execute(&self) -> color_eyre::Result<()> {
         todo!()
     }
 }

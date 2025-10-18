@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use color_eyre::eyre::eyre;
+use strum::EnumString;
 use thiserror::Error;
 use winnow::combinator::{alt, cut_err, eof, seq, terminated};
 use winnow::error::{StrContext, StrContextValue};
@@ -18,7 +20,16 @@ pub struct ServerKindParseError {
     value: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+impl ServerKindParseError {
+    pub fn new(value: &str) -> Self {
+        ServerKindParseError {
+            value: value.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, EnumString)]
+#[strum(ascii_case_insensitive, parse_err_ty = ServerKindParseError, parse_err_fn = ServerKindParseError::new)]
 pub enum ServerKind {
     #[default]
     Vanilla,
@@ -26,23 +37,6 @@ pub enum ServerKind {
     Forge,
     Neoforge,
     Paper,
-}
-
-impl FromStr for ServerKind {
-    // TODO: custom error type
-    type Err = ServerKindParseError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "vanilla" => Ok(ServerKind::Vanilla),
-            "fabric" => Ok(ServerKind::Fabric),
-            "forge" => Ok(ServerKind::Forge),
-            "neoforge" => Ok(ServerKind::Neoforge),
-            "paper" => Ok(ServerKind::Paper),
-            _ => Err(ServerKindParseError {
-                value: s.to_string(),
-            }),
-        }
-    }
 }
 
 // TODO: move
@@ -95,12 +89,12 @@ fn parse_server_spec(input: &mut &str) -> ModalResult<ServerSpec> {
 }
 
 impl FromStr for ServerSpec {
-    type Err = anyhow::Error;
+    type Err = color_eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         parse_server_spec
             .parse(s)
-            .map_err(|e| anyhow::anyhow!("parsing server specification failed:\n{e}"))
+            .map_err(|e| eyre!("parsing server specification failed:\n{e}"))
     }
 }
 
@@ -116,6 +110,8 @@ impl Default for ServerSpec {
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
+
     use super::*;
 
     #[tokio::test(flavor = "multi_thread")]
@@ -131,5 +127,12 @@ mod tests {
         dbg!(&spec);
         assert_eq!(spec.version, latest);
         assert!(spec.id.to_string().starts_with("unnamed ("))
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn doesnt_panic() {
+        proptest!(|(input in "\\PC")| {
+            let _ = parse_server_spec(&mut &input[..]);
+        });
     }
 }

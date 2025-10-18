@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use anyhow::Result as AResult;
+use color_eyre::Result as CResult;
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -50,7 +50,7 @@ impl FromStr for VersionId {
 
 impl Default for VersionId {
     fn default() -> Self {
-        MANIFEST.latest.release.clone()
+        MANIFEST.latest_release_id().clone()
     }
 }
 
@@ -146,7 +146,7 @@ pub struct GamePackage {
 }
 
 impl MinecraftVersion {
-    pub async fn get_package(&self) -> AResult<GamePackage> {
+    pub async fn get_package(&self) -> CResult<GamePackage> {
         Ok(net::get_cached(&self.url, None).await?)
     }
 }
@@ -188,7 +188,7 @@ impl IntoIterator for VersionManifest {
     }
 }
 
-pub async fn find_version(id: &VersionId) -> AResult<&'static MinecraftVersion> {
+pub async fn find_version(id: &VersionId) -> CResult<&'static MinecraftVersion> {
     let ver = MANIFEST
         .versions
         .iter()

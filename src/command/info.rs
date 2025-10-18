@@ -10,8 +10,8 @@ pub struct InfoCmd {
 }
 
 impl McdlCommand for InfoCmd {
-    async fn execute(&self) -> anyhow::Result<()> {
-        tracing::debug!(?self);
+    #[tracing::instrument]
+    async fn execute(&self) -> color_eyre::Result<()> {
         todo!()
     }
 }

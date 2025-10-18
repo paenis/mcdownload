@@ -32,7 +32,8 @@ pub struct InstallCmd {
 }
 
 impl McdlCommand for InstallCmd {
-    async fn execute(&self) -> anyhow::Result<()> {
+    #[tracing::instrument]
+    async fn execute(&self) -> color_eyre::Result<()> {
         // todo!()
         Ok(())
     }

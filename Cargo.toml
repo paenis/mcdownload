@@ -7,8 +7,8 @@ edition      = "2024"
 rust-version = "1.89.0"
 
 [dependencies]
-anyhow = "1.0.100"
 clap = { version = "4.5.49", features = ["derive", "wrap_help"] }
+color-eyre = "0.6.5"
 console-subscriber = { version = "0.4.1", optional = true }
 data-encoding = "2.9.0"
 fastrand = "2.3.0"
@@ -18,14 +18,16 @@ reqwest = { version = "0.12.24", default-features = false, features = ["brotli",
 reqwest-middleware = "0.4.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+strum = { version = "0.27.2", features = ["derive"] }
+supports-color = "3.0.2"
 thiserror = "2.0.17"
 tokio = { version = "1.48.0", features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.41"
+tracing-error = "0.2.1"
 tracing-subscriber = { version = "0.3.20", features = ["parking_lot", "env-filter"] }
 winnow = { version = "0.7.13", features = ["simd"] }
 
 # bytes = "1.7.0"
-# color-eyre = "0.6.2"
 # dialoguer = { version = "0.11.0", default-features = false }
 # directories = "5.0.1"
 # indicatif = "0.17.7"
@@ -33,7 +35,6 @@ winnow = { version = "0.7.13", features = ["simd"] }
 # prettytable-rs = { version = "0.10.0", default-features = false }
 # shell-escape = "0.1.5"
 # toml = { version = "0.8.19", features = ["preserve_order"] }
-# tracing-error = "0.2.0"
 
 [dev-dependencies]
 proptest = "1.8.0"
@@ -45,6 +46,7 @@ console = ["dep:console-subscriber", "tokio/tracing"]
 
 [profile.dev]
 opt-level = 1
+package.backtrace = { opt-level = 3 }
 
 [profile.release]
 debug = "line-tables-only"

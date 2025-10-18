@@ -10,5 +10,5 @@ pub use uninstall::UninstallCmd;
 
 pub trait McdlCommand {
     // TODO: color-eyre or miette
-    async fn execute(&self) -> anyhow::Result<()>;
+    async fn execute(&self) -> color_eyre::Result<()>;
 }
