@@ -13,7 +13,7 @@ console-subscriber = { version = "0.4.1", optional = true }
 data-encoding = "2.9.0"
 fastrand = "2.3.0"
 http-cache-reqwest = "0.16.0"
-jiff = { version = "0.2.15", features = ["serde"] }
+jiff = { version = "0.2.16", features = ["serde"] }
 reqwest = { version = "0.12.24", default-features = false, features = ["brotli", "deflate", "gzip", "json", "rustls-tls", "zstd"] }
 reqwest-middleware = "0.4.2"
 serde = { version = "1.0.228", features = ["derive"] }
