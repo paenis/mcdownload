@@ -4,28 +4,26 @@ version      = "0.3.5"
 authors      = ["paenis <github+paenis@cark.moe>"]
 homepage     = "https://github.com/paenis/mcdownload"
 edition      = "2024"
-rust-version = "1.89.0"
+rust-version = "1.92.0"
 
 [dependencies]
-clap = { version = "4.5.49", features = ["derive", "wrap_help"] }
+clap = { version = "4.6.1", features = ["derive", "wrap_help"] }
 color-eyre = "0.6.5"
-console-subscriber = { version = "0.4.1", optional = true }
-data-encoding = "2.9.0"
-fastrand = "2.3.0"
-http-cache-reqwest = "0.16.0"
-jiff = { version = "0.2.15", features = ["serde"] }
-reqwest = { version = "0.12.24", default-features = false, features = ["brotli", "deflate", "gzip", "json", "rustls-tls", "zstd"] }
-reqwest-middleware = "0.4.2"
+console-subscriber = { version = "0.5.0", optional = true }
+data-encoding = "2.10.0"
+fastrand = "2.4.1"
+jiff = { version = "0.2.23", features = ["serde"] }
+reqwest = { version = "0.13.2", features = ["brotli", "deflate", "gzip", "json", "zstd"] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
-strum = { version = "0.27.2", features = ["derive"] }
+serde_json = "1.0.149"
+strum = { version = "0.28.0", features = ["derive"] }
 supports-color = "3.0.2"
-thiserror = "2.0.17"
-tokio = { version = "1.48.0", features = ["rt-multi-thread", "macros"] }
-tracing = "0.1.41"
+thiserror = "2.0.18"
+tokio = { version = "1.52.1", features = ["rt-multi-thread", "macros"] }
+tracing = "0.1.44"
 tracing-error = "0.2.1"
-tracing-subscriber = { version = "0.3.20", features = ["parking_lot", "env-filter"] }
-winnow = { version = "0.7.13", features = ["simd"] }
+tracing-subscriber = { version = "0.3.23", features = ["parking_lot", "env-filter"] }
+winnow = { version = "1.0.2", features = ["simd"] }
 
 # bytes = "1.7.0"
 # dialoguer = { version = "0.11.0", default-features = false }
@@ -37,7 +35,7 @@ winnow = { version = "0.7.13", features = ["simd"] }
 # toml = { version = "0.8.19", features = ["preserve_order"] }
 
 [dev-dependencies]
-proptest = "1.8.0"
+proptest = "1.11.0"
 
 [features]
 default = []
@@ -46,7 +44,6 @@ console = ["dep:console-subscriber", "tokio/tracing"]
 
 [profile.dev]
 opt-level = 1
-package.backtrace = { opt-level = 3 }
 
 [profile.release]
 debug = "line-tables-only"

@@ -7,12 +7,11 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::macros::wait;
-use crate::net::{self, NetError};
+use crate::net::{HttpClient, NetError};
 
 static MANIFEST: LazyLock<VersionManifest> = LazyLock::new(|| {
-    wait!(net::get_cached(
+    wait!(HttpClient::get(
         "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
-        None,
     ))
     .expect("Failed to fetch Minecraft version manifest from Mojang API")
 });
@@ -35,6 +34,10 @@ impl VersionId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    pub fn latest() -> Self {
+        MANIFEST.latest_release_id().clone()
+    }
 }
 
 impl FromStr for VersionId {
@@ -45,12 +48,6 @@ impl FromStr for VersionId {
         } else {
             Err(VersionIdParseError::Invalid)
         }
-    }
-}
-
-impl Default for VersionId {
-    fn default() -> Self {
-        MANIFEST.latest_release_id().clone()
     }
 }
 
@@ -122,32 +119,21 @@ struct JavaVersion {
     major_version: u8,
 }
 
-impl Default for JavaVersion {
-    /// Creates a `JavaVersion` with major version 8 and unspecified component
-    fn default() -> Self {
-        Self {
-            component: String::new(),
-            major_version: 8,
-        }
-    }
-}
-
 /// Package information for a specific game version, from the `url` field of the [`MinecraftVersion`] struct. Includes downloads and Java version information.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GamePackage {
+pub struct VersionInfo {
     downloads: HashMap<String, Download>,
     id: VersionId,
-    #[serde(default)]
-    java_version: JavaVersion,
+    java_version: Option<JavaVersion>,
     release_time: jiff::Timestamp,
     time: jiff::Timestamp,
     r#type: String,
 }
 
 impl MinecraftVersion {
-    pub async fn get_package(&self) -> CResult<GamePackage> {
-        Ok(net::get_cached(&self.url, None).await?)
+    pub async fn get_package(&self) -> CResult<VersionInfo> {
+        Ok(HttpClient::get(&self.url).await?)
     }
 }
 

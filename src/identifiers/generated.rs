@@ -3,17 +3,18 @@ use std::sync::LazyLock;
 
 use thiserror::Error;
 
-type IdentifierValue = u64;
+// you never need more than 4 billion of *anything*, right?
+type IdentifierValue = u32;
 
-const ALPHABET: &str = "0123456789abcdefghjkmnpqrstvwxyz"; // crockford's base32 (lowercase)
+const ALPHABET: &str = "zxywvutsrqponmlk"; // reverse hex (cf. https://github.com/jj-vcs/jj/blob/main/lib/src/hex_util.rs#L18)
 const IDENTIFIER_LENGTH: usize = IdentifierValue::BITS.div_ceil(ALPHABET.len().ilog2()) as usize;
 
 static ENCODER: LazyLock<data_encoding::Encoding> = LazyLock::new(|| {
     let mut spec = data_encoding::Specification::new();
     spec.symbols.push_str(ALPHABET);
     spec.padding = None;
-    spec.translate.from.push_str("OoIiLlABCDEFGHJKMNPQRSTVWXYZ");
-    spec.translate.to.push_str("001111abcdefghjkmnpqrstvwxyz");
+    spec.translate.from.push_str("ZXYWVUTSRQPO0NML1K");
+    spec.translate.to.push_str("zxywvutsrqpoonmllk");
     spec.encoding().unwrap()
 });
 
@@ -26,11 +27,14 @@ pub struct GeneratedIdentifier {
 impl GeneratedIdentifier {
     /// Create a new random identifier
     pub fn new() -> Self {
+        const { assert!(IdentifierValue::BITS.is_multiple_of(u8::BITS)) }
+
         let mut buf = [0u8; IdentifierValue::BITS as usize / 8];
         fastrand::fill(&mut buf);
         let value = IdentifierValue::from_le_bytes(buf);
         Self { value }
     }
+
     /// Get the string representation of this identifier
     pub fn as_str(&self) -> String {
         ENCODER.encode(&self.value.to_le_bytes())
@@ -39,8 +43,10 @@ impl GeneratedIdentifier {
 
 #[derive(Error, Debug)]
 pub enum IdentifierParseError {
+    /// The input string had an invalid length
     #[error("invalid length. expected {IDENTIFIER_LENGTH}, found {0}")]
     InvalidLength(usize),
+    /// The input string contained an invalid character
     #[error("invalid character: {0}. expected one of: {ALPHABET}")]
     InvalidCharacter(char),
     #[error("unexpected error")]
@@ -88,6 +94,7 @@ mod tests {
             let s = id.as_str();
             let parsed = s.parse::<GeneratedIdentifier>().unwrap();
             prop_assert_eq!(id.value, parsed.value);
+            eprintln!("{v} <-> {s} <-> {parsed:?}");
         }
     }
 

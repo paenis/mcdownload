@@ -34,7 +34,7 @@ pub struct InstallCmd {
 impl McdlCommand for InstallCmd {
     #[tracing::instrument]
     async fn execute(&self) -> color_eyre::Result<()> {
-        // todo!()
+        println!("specs: {}", self.specs.as_ref().unwrap()[0]);
         Ok(())
     }
 }

@@ -28,8 +28,8 @@ impl ServerKindParseError {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, EnumString)]
-#[strum(ascii_case_insensitive, parse_err_ty = ServerKindParseError, parse_err_fn = ServerKindParseError::new)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, EnumString, strum::IntoStaticStr)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive, parse_err_ty = ServerKindParseError, parse_err_fn = ServerKindParseError::new)]
 pub enum ServerKind {
     #[default]
     Vanilla,
@@ -47,14 +47,26 @@ pub struct ServerSpec {
     server_type: ServerKind,
 }
 
+impl std::fmt::Display for ServerSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}:{}:{}",
+            self.version.as_str(),
+            self.id,
+            Into::<&'static str>::into(self.server_type)
+        )
+    }
+}
+
 fn parse_server_spec(input: &mut &str) -> ModalResult<ServerSpec> {
     let mut version = alt((
         // empty input or empty version field
-        eof.default_value(),
-        ':'.default_value(),
+        eof.map(|_| VersionId::latest()),
+        ':'.map(|_| VersionId::latest()),
         // version present
         cut_err(alt((terminated(take_until(1.., ':'), ':'), rest)).parse_to()).context(
-            StrContext::Expected(StrContextValue::Description("valid version number")),
+            StrContext::Expected(StrContextValue::Description("a valid version number")),
         ),
     ));
 
@@ -69,7 +81,7 @@ fn parse_server_spec(input: &mut &str) -> ModalResult<ServerSpec> {
             .map(|s: &str| NamedId::new(s.to_string())),
         )
         .context(StrContext::Expected(StrContextValue::Description(
-            "[a-zA-Z0-9_\\-]",
+            r#"[a-zA-Z0-9_\-]"#,
         ))),
     ));
 
@@ -101,7 +113,7 @@ impl FromStr for ServerSpec {
 impl Default for ServerSpec {
     fn default() -> Self {
         ServerSpec {
-            version: VersionId::default(),
+            version: VersionId::latest(),
             id: NamedId::new("unnamed".to_string()),
             server_type: ServerKind::Vanilla,
         }
@@ -116,7 +128,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn parse_simple() {
-        let latest = VersionId::default();
+        let latest = VersionId::latest();
 
         let spec: ServerSpec = "1.20.1".parse().unwrap();
         dbg!(&spec);

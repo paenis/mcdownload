@@ -27,4 +27,5 @@ macro_rules! wait {
     };
 }
 
-pub(crate) use {debug_unreachable, wait};
+pub(crate) use debug_unreachable;
+pub(crate) use wait;
