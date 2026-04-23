@@ -28,7 +28,7 @@ impl ServerKindParseError {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, EnumString, strum::IntoStaticStr)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, EnumString, strum::Display)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive, parse_err_ty = ServerKindParseError, parse_err_fn = ServerKindParseError::new)]
 pub enum ServerKind {
     #[default]
@@ -54,7 +54,7 @@ impl std::fmt::Display for ServerSpec {
             "{}:{}:{}",
             self.version.as_str(),
             self.id,
-            Into::<&'static str>::into(self.server_type)
+            self.server_type
         )
     }
 }
