@@ -19,7 +19,7 @@ serde_json = "1.0.149"
 strum = { version = "0.28.0", features = ["derive"] }
 supports-color = "3.0.2"
 thiserror = "2.0.18"
-tokio = { version = "1.52.1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.52.2", features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.44"
 tracing-error = "0.2.1"
 tracing-subscriber = { version = "0.3.23", features = ["parking_lot", "env-filter"] }
